@@ -15,8 +15,24 @@ var (
 
 // groupCmd represents the group command
 var addCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Add a package",
+	Use:   "add <name>",
+	Short: "Add a package, app or plugin to the dotpak manifest",
+	Long: `Add a package, app or plugin to the dotpak manifest.
+
+Available install types include:
+	pacman
+	aur
+	flatpak
+	omarchy
+	mise
+
+The -i, --installType flag allows a install command to be 
+specified that is different than the name. For instance, this 
+is necessary for flathub appID's or specifying the repo for an 
+omarchy plugin. If ommitted, the install command will equal the
+name of the package.
+
+`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
