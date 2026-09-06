@@ -10,19 +10,19 @@ import (
 )
 
 var (
-	group       string
-	installType string
+	listGroup       string
+	listInstallType string
 )
 
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Lists all entries in the manifest",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		hasInstallType := installType != ""
+		hasInstallType := listInstallType != ""
 		if hasInstallType {
-			it := manifest.InstallType(installType)
+			it := manifest.InstallType(listInstallType)
 			if !it.IsValid() {
-				return fmt.Errorf("invalid install type: %q", installType)
+				return fmt.Errorf("invalid install type: %q", listInstallType)
 			}
 
 		}
@@ -34,10 +34,10 @@ var listCmd = &cobra.Command{
 		}
 
 		for _, e := range entries.Manifest {
-			if e.Group != group {
+			if e.Group != listGroup {
 				continue
 			}
-			if hasInstallType && e.InstallType != manifest.InstallType(installType) {
+			if hasInstallType && e.InstallType != manifest.InstallType(listInstallType) {
 				continue
 			}
 			filtered = append(filtered, e)
@@ -60,6 +60,6 @@ var listCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(listCmd)
-	listCmd.Flags().StringVarP(&group, "group", "g", "all", "filter by group")
-	listCmd.Flags().StringVarP(&installType, "installType", "i", "", "filter by install type")
+	listCmd.Flags().StringVarP(&listGroup, "group", "g", "all", "filter by group")
+	listCmd.Flags().StringVarP(&listInstallType, "installType", "i", "", "filter by install type")
 }
