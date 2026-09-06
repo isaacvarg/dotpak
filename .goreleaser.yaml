@@ -1,0 +1,76 @@
+version: 2
+
+project_name: dotpak
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: dotpak
+    main: .
+    binary: dotpak
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    ids:
+      - dotpak
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  draft: false
+  prerelease: auto
+
+aurs:
+  - name: dotpak-bin
+    ids:
+      - dotpak
+    homepage: "https://github.com/isaacvarg/dotpak"
+    description: "Package installation manager cli for your dotfiles"
+    maintainers:
+      - "Isaac hello@isaacvargas.dev"
+    license: "MIT"
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/dotpak-bin.git"
+    skip_upload: true 
+    provides:
+      - dotpak
+    conflicts:
+      - dotpak 
+      - dotpak-git
+    depends: []
+    package: |-
+      install -Dm755 "./dotpak" "${pkgdir}/usr/bin/dotpak"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/dotpak-bin/LICENSE"
