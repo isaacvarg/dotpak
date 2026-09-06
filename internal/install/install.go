@@ -41,24 +41,32 @@ func Install(group string) error {
 		}
 	}
 
-	err = installPacmanPackages(pacman)
-	if err != nil {
-		return fmt.Errorf("pacman failed: %w", err)
+	if len(pacman) != 0 {
+		err = installPacmanPackages(pacman)
+		if err != nil {
+			return fmt.Errorf("pacman failed: %w", err)
+		}
 	}
 
-	err = InstallAURPackages(aur)
-	if err != nil {
-		return fmt.Errorf("aur installer failed: %w", err)
+	if len(aur) != 0 {
+		err = InstallAURPackages(aur)
+		if err != nil {
+			return fmt.Errorf("aur installer failed: %w", err)
+		}
 	}
 
-	err = InstallFlatpakPackages(flatpak)
-	if err != nil {
-		return fmt.Errorf("flatpak installer failed: %w", err)
+	if len(flatpak) != 0 {
+		err = InstallFlatpakPackages(flatpak)
+		if err != nil {
+			return fmt.Errorf("flatpak installer failed: %w", err)
+		}
 	}
 
-	err = InstallOmarchyPlugins(omarchy)
-	if err != nil {
-		return fmt.Errorf("omarchy plugins installer failed: %w", err)
+	if len(omarchy) != 0 {
+		err = InstallOmarchyPlugins(omarchy)
+		if err != nil {
+			return fmt.Errorf("omarchy plugins installer failed: %w", err)
+		}
 	}
 
 	return nil

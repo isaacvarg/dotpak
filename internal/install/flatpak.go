@@ -19,7 +19,7 @@ func InstallFlatpakPackages(appID []string) error {
 	}
 	
 // TODO make this work with remote and not only flathub
-	args := append([]string{"install", "-y"}, appID...)
+	args := append([]string{"install", "flathub", "-y"}, appID...)
 
 	command := exec.Command("flatpak", args...)
 	command.Stdin = os.Stdin
