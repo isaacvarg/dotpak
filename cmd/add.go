@@ -8,8 +8,6 @@ import (
 )
 
 var (
-	group          string
-	installType    string
 	installCommand string
 )
 
