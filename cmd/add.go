@@ -50,7 +50,7 @@ name of the package.
 
 		m, err := manifest.Load()
 		if err != nil {
-			return fmt.Errorf("reading groups: %w", err)
+			return fmt.Errorf("reading manifest: %w", err)
 		}
 
 		err = m.Add(
@@ -60,7 +60,7 @@ name of the package.
 			ic,
 		)
 		if err != nil {
-			return fmt.Errorf("creating entry %q: %w", name, err)
+			return fmt.Errorf("creating entry %q failed: %w", name, err)
 		}
 
 		if err := m.Save(); err != nil {

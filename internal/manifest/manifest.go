@@ -24,6 +24,7 @@ const (
 
 
 var ErrDuplicateEntry = errors.New("entry already exists in the manifest")
+var ErrNotFound = errors.New("entry not found in the manifest")
 
 func (i InstallType) IsValid() bool {
 	switch i {
@@ -92,6 +93,18 @@ func (m *Manifest) Add(name string, installType InstallType, group string, insta
 
 	return nil
 }
+
+func (m *Manifest) Remove(name string) error {
+	for i, existing := range m.Manifest {
+		if strings.EqualFold(existing.Name, name) {
+			m.Manifest = append(m.Manifest[:i], m.Manifest[i+1:]...)
+			return nil
+		}
+	}
+
+	return ErrNotFound
+}
+
 
 func manifestFile() string {
 	return path.Join(storage.ConfigDir(), "manifest.json")
