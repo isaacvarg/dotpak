@@ -22,15 +22,43 @@ func Install(group string) error {
 	}
 
 	var pacman []string
-	for _, e	 := range groupData {
-		if e.InstallType == "pacman" {
+	var aur []string
+	var flatpak []string
+	var omarchy []string
+
+	for _, e := range groupData {
+		switch e.InstallType {
+
+		case "pacman":
 			pacman = append(pacman, e.InstallCommand)
+
+		case "aur":
+			aur = append(aur, e.InstallCommand)
+		case "flatpak":
+			flatpak = append(flatpak, e.InstallCommand)
+		case "omarchy":
+			omarchy = append(omarchy, e.InstallCommand)
 		}
 	}
 
 	err = installPacmanPackages(pacman)
 	if err != nil {
-	return fmt.Errorf("pacman failed: %w", err )
+		return fmt.Errorf("pacman failed: %w", err)
+	}
+
+	err = InstallAURPackages(aur)
+	if err != nil {
+		return fmt.Errorf("aur installer failed: %w", err)
+	}
+
+	err = InstallFlatpakPackages(flatpak)
+	if err != nil {
+		return fmt.Errorf("flatpak installer failed: %w", err)
+	}
+
+	err = InstallOmarchyPlugins(omarchy)
+	if err != nil {
+		return fmt.Errorf("omarchy plugins installer failed: %w", err)
 	}
 
 	return nil
@@ -44,5 +72,4 @@ func installPacmanPackages(names []string) error {
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 	return command.Run()
-
 }
