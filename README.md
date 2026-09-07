@@ -12,6 +12,12 @@ Currently works with:
 - Flatpak
 - Omarchy Quattro plugins
 
+## Roadmap
+
+- interactive mode built with bubbletea
+- shorthand flags for install type. E.g., -p for pacman
+- hooks to suggest adding package to dotpak after installation
+
 ## Installation
 
 ### Requirements
