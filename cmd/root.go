@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -10,9 +11,9 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "dotpak",
 	Short: "Package installation manager for your dotfiles",
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("ran root")
+	},
 }
 
 func Execute() {
