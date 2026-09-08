@@ -29,7 +29,7 @@ var removeCmd = &cobra.Command{
 			return fmt.Errorf("saving manifest entry failed: %w", err)
 		}
 
-		fmt.Printf("removed entry %q", name)
+		fmt.Printf("removed entry %s\n", name)
 
 		return nil
 	},
