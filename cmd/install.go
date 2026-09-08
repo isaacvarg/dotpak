@@ -13,7 +13,6 @@ var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "installs packages from manifest",
 	RunE: func(cmd *cobra.Command, args []string) error {
-
 		err := install.Install(installGroup)
 		if err != nil {
 			fmt.Println(err)

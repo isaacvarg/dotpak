@@ -25,17 +25,15 @@ var addCmd = &cobra.Command{
 	Long: `Add a package, app or plugin to the dotpak manifest.
 
 Available install types include:
-	pacman
-	aur
-	flatpak
-	omarchy
-	mise
+pacman
+aur
+flatpak
+omarchy
+mise
 
-The -i, --installType flag allows a install command to be 
-specified that is different than the name. For instance, this 
-is necessary for flathub appID's or specifying the repo for an 
-omarchy plugin. If ommitted, the install command will equal the
-name of the package.
+Install Command
+---------------
+The -i or --installCommand flag allows a install command to be specified that is different than the name. For example, the name and command differ for flathub appID's or specifying the repo for an omarchy plugin. If ommitted, the install command will equal the name of the package.
 
 `,
 	Args: cobra.ExactArgs(1),
