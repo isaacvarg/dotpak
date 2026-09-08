@@ -15,7 +15,7 @@ Currently works with:
 ## Roadmap
 
 - interactive mode built with bubbletea
-- shorthand flags for install type. E.g., -p for pacman
+- ~~shorthand flags for install type. E.g., -p for pacman~~
 - hooks to suggest adding package to dotpak after installation
 
 ## Installation
@@ -54,6 +54,13 @@ dotpak add <name> -i <installType> [-g <group>] [-c <installCommand>]
 - `-g`, `--group`: group to add this entry to (defaults to all)
 - `-c`, `--installCommand`:  the actual command/package id to install, if it
   differs from <name> (e.g. a Flathub app ID or an Omarchy plugin repo)
+
+Shortcuts for the install type can also be used:
+- `-p` for pacman
+- `-a` for AUR
+- `-f` for flatpak
+- `-m` for mise
+- `-o` for omarchy quattro plugins
 
 Examples:
 ```bash
