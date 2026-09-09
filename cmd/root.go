@@ -2,9 +2,9 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
+	"github.com/isaacvarg/dotpak/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +12,7 @@ var rootCmd = &cobra.Command{
 	Use:   "dotpak",
 	Short: "Package installation manager for your dotfiles",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("ran root")
+		tui.TestTUI()
 	},
 }
 
