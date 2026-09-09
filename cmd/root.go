@@ -12,7 +12,7 @@ var rootCmd = &cobra.Command{
 	Use:   "dotpak",
 	Short: "Package installation manager for your dotfiles",
 	Run: func(cmd *cobra.Command, args []string) {
-		tui.TestTUI()
+		tui.App()
 	},
 }
 

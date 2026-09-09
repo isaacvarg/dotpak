@@ -2,47 +2,20 @@
 package tui
 
 import (
-	"charm.land/lipgloss/v2"
+	"fmt"
+	"os"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 // new to bubbletea so following
 // https://github.com/charmbracelet/bubbletea/tree/main/tutorials/basics
 // https://github.com/charmbracelet/bubbletea/tree/main/examples/list-simple
 
-type state int
-
-const (
-	stateName = iota
-	stateSource
-	stateGroup
-	stateCommand
-	stateDone
-)
-
-type model struct {
-	state state
-
-	nameInput string
-
+func App() {
+	p := tea.NewProgram(initialModel())
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("alas, there's been an error: %v", err)
+		os.Exit(1)
+	}
 }
-
-var style = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("#FAFAFA")).
-	Background(lipgloss.Color("#7D56F4")).
-	PaddingLeft(4).
-	Width(22)
-
-func TestTUI() {
-	lipgloss.Println(style.Render("hey there"))
-}
-
-func initialModel() model {
-	return model{}
-}
-
-
-
-// init component
-// update component
-// view component
