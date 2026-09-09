@@ -13,7 +13,13 @@ import (
 // https://github.com/charmbracelet/bubbletea/tree/main/examples/list-simple
 
 func App() {
-	p := tea.NewProgram(initialModel())
+	m, err := initialModel()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("alas, there's been an error: %v", err)
 		os.Exit(1)

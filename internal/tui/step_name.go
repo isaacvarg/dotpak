@@ -26,7 +26,7 @@ func (m model) viewName() ([]string, int) {
 	if m.err != "" {
 		output = append(output, "", errorStyle.Render("x "+m.err))
 	}
-	output = append(output, "", controlsStyle.Render("enter confirm • q quit"))
+	output = append(output, "", controlsStyle.Render("enter confirm • esc quit"))
 
 	return output, inputLine
 }
