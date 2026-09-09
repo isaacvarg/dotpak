@@ -2,11 +2,35 @@ package tui
 
 import (
 	"image/color"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 )
 
 // lipgloss stylin
+var gradient = []color.Color{
+	lipgloss.Color("#ee99a0"),
+	lipgloss.Color("#f5a97f"),
+	lipgloss.Color("#f0c6c6"),
+	lipgloss.Color("#f5bde6"),
+}
+
+func gradientStyle(text string) string {
+	runes := []rune(text)
+	if len(runes) == 0 {
+		return text
+	}
+
+	colors := lipgloss.Blend1D(len(runes), gradient...)
+
+	base := lipgloss.NewStyle().Bold(true)
+
+	var b strings.Builder
+	for i, r := range runes {
+		b.WriteString(base.Foreground(colors[i]).Render(string(r)))
+	}
+	return b.String()
+}
 
 var (
 	questionStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("250"))
@@ -14,6 +38,7 @@ var (
 	controlsStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
 	selectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#eed49f"))
 	helpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#a5adcb"))
+	labelStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Width(10)
 	boxStyle      = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#f5a97f")).

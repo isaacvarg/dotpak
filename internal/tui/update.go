@@ -15,6 +15,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// is it a keypress?
 	case tea.KeyPressMsg:
 
+		if m.state == stateDone {
+			return m, tea.Quit
+		}
+
 		// cool, which key was pressed
 		switch msg.String() {
 		// exit
@@ -125,6 +129,11 @@ func (m model) View() tea.View {
 		output = m.viewGroup()
 	case stateCommand:
 		output, inputLine = m.viewCommand()
+	case stateDone:
+		output = append(output,
+			m.summary(),
+			controlsStyle.Render("any key to exit "),
+		)
 	}
 
 	view := tea.NewView(strings.Join(output, "\n"))
