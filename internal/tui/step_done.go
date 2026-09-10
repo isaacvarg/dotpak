@@ -35,6 +35,16 @@ func (m model) summary() string {
 	return boxStyle.Render(body) + "\n"
 }
 
+func (m model) failure() string {
+	body := strings.Join([]string{
+		errorStyle.Render("Something went wrong!"),
+		"",
+		errorStyle.Render(m.err),
+	}, "\n")
+
+	return boxStyle.Render(body) + "\n"
+}
+
 func (m model) save() tea.Cmd {
 	return func() tea.Msg {
 		mf, err := manifest.Load()

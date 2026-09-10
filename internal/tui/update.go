@@ -15,7 +15,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// is it a keypress?
 	case tea.KeyPressMsg:
 
-		if m.state == stateDone {
+		if m.state == stateDone || m.state == stateSaveFailed {
 			return m, tea.Quit
 		}
 
@@ -35,6 +35,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case savedMsg:
 		if msg.err != nil {
 			m.err = msg.err.Error()
+			m.state = stateSaveFailed
 			return m, nil
 		}
 		m.state = stateDone
@@ -137,6 +138,8 @@ func (m model) View() tea.View {
 		output = m.viewGroup()
 	case stateCommand:
 		output, inputLine = m.viewCommand()
+	case stateSaveFailed:
+		output = append(output, m.failure(), controlsStyle.Render("any key to exit "))
 	case stateDone:
 		output = append(output,
 			m.summary(),
