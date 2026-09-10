@@ -14,8 +14,9 @@ Currently works with:
 
 ## Roadmap
 
-- interactive mode built with bubbletea
+- ~~interactive mode built with bubbletea~~
 - ~~shorthand flags for install type. E.g., -p for pacman~~
+- use bubbletea and lipgloss for list command
 - hooks to suggest adding package to dotpak after installation
 
 ## Installation
@@ -81,6 +82,8 @@ Entries in the all group are always included plus the entries in the specified g
 ```bash
 dotpak list [-g <group>] [-i <installType>]
 ```
+With no flags this prints every entry in the manifest. Use `-g` and `-i` to filter results
+
 
 *Remove an entry*
 ```bash
