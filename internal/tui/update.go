@@ -31,6 +31,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "k", "up":
 			return m.move(-1), nil
 		}
+
+	case savedMsg:
+		if msg.err != nil {
+			m.err = msg.err.Error()
+			return m, nil
+		}
+		m.state = stateDone
+		return m, nil
 	}
 
 	// return the updated model to the bubble tea runtime for processing
@@ -64,7 +72,7 @@ func (m model) confirm() (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case stateCommand:
-		return m.setCommand(m.commandInput.Value()), nil
+		return m.setCommand(m.commandInput.Value()), m.save()
 	}
 
 	return m, nil

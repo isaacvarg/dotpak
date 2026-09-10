@@ -1,11 +1,16 @@
 package tui
 
 import (
+	"fmt"
 	"image/color"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/isaacvarg/dotpak/internal/manifest"
 )
+
+type savedMsg struct{ err error }
 
 func (m model) summary() string {
 	// styles the response answers
@@ -28,4 +33,28 @@ func (m model) summary() string {
 	}, "\n")
 
 	return boxStyle.Render(body) + "\n"
+}
+
+func (m model) save() tea.Cmd {
+	return func() tea.Msg {
+		mf, err := manifest.Load()
+		if err != nil {
+			return savedMsg{fmt.Errorf("something went wrong reading manifest: %w", err)}
+		}
+
+		if err := mf.Add(
+			m.name,
+			manifest.InstallType(m.source),
+			m.group,
+			m.command,
+		); err != nil {
+			return savedMsg{fmt.Errorf("something went wrong creating %q: %w", m.name, err)}
+		}
+
+		if err := mf.Save(); err != nil {
+			return savedMsg{fmt.Errorf("someting went wrong saving: %w", err)}
+		}
+
+		return savedMsg{nil}
+	}
 }

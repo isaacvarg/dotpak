@@ -18,6 +18,7 @@ const (
 	stateSource
 	stateGroup
 	stateCommand
+	stateSaved
 	stateDone
 )
 

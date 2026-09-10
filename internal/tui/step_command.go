@@ -34,6 +34,5 @@ func (m model) setCommand(input string) model {
 
 	m.command = command
 	m.commandInput.Blur()
-	m.state = stateDone
 	return m
 }
