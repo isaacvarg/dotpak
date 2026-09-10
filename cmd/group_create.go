@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/isaacvarg/dotpak/internal/groups"
@@ -20,6 +21,9 @@ var groupCreateCmd = &cobra.Command{
 		}
 
 		if err := g.Add(name); err != nil {
+			if errors.Is(err, groups.ErrReservedGroup) {
+				return fmt.Errorf("%q is a built-in group", name)
+			}
 			return fmt.Errorf("creating group %q: %w", name, err)
 		}
 

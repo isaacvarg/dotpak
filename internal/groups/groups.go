@@ -11,7 +11,13 @@ import (
 	"github.com/isaacvarg/dotpak/internal/storage"
 )
 
-var ErrDuplicateGroup = errors.New("group already exists")
+// reserve this bc if someone adds all to their groups it will cause problems
+const All = "all"
+
+var (
+	ErrDuplicateGroup = errors.New("group already exists")
+	ErrReservedGroup  = errors.New("group name is reserved")
+)
 
 type Groups struct {
 	Groups []Group `json:"groups"`
@@ -38,7 +44,26 @@ func Load() (*Groups, error) {
 	return &g, nil
 }
 
+func (g *Groups) Names() []string {
+	names := make([]string, 0, len(g.Groups)+1)
+	names = append(names, All)
+
+	for _, existing := range g.Groups {
+		// an older groups.json may have a stored "all", only show it once
+		if strings.EqualFold(existing.Name, All) {
+			continue
+		}
+		names = append(names, existing.Name)
+	}
+
+	return names
+}
+
 func (g *Groups) Add(name string) error {
+	if strings.EqualFold(name, All) {
+		return ErrReservedGroup
+	}
+
 	for _, existing := range g.Groups {
 		if strings.EqualFold(existing.Name, name) {
 			return ErrDuplicateGroup

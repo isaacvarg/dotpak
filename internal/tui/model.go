@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"image/color"
 	"strings"
 
@@ -51,20 +50,11 @@ func initialModel() (model, error) {
 		return model{}, err
 	}
 
-	if len(lg.Groups) == 0 {
-		return model{}, fmt.Errorf("whoops, please add some groups first. see dotpak group --help")
-	}
-
-	groupNames := make([]string, 0, len(lg.Groups))
-	for _, g := range lg.Groups {
-		groupNames = append(groupNames, g.Name)
-	}
-
 	m := model{
 		state:        stateName,
 		nameInput:    newNameInput(),
 		sources:      []string{"pacman", "aur", "mise", "omarchy", "flatpak"},
-		groups:       groupNames,
+		groups:       lg.Names(),
 		commandInput: newCommandInput(),
 	}
 
