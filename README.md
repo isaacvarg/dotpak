@@ -1,12 +1,12 @@
 # Dotpak
 
-![screenshot of dotpak](.github/assets/dotpak.png)
+![screenshot of dotpak](.github/assets/dotpak.gif)
 
 A command-line tool that helps manage packages, apps and plugins for your dotfiles.
 
 `dotpak` lets you declare the packages, apps, and plugins you want installed across machines in a single manifest, organize them into groups (like `work`, `personal`), and install them all with one command.
 
-![gif of dotpak](.github/assets/dotpak.gif)
+![gif of dotpak](.github/assets/dotpak.png)
 
 Dotpak pairs well with a dotfiles manager like [chezmoi](https://www.chezmoi.io/). Add the `~/.config/dotpak` to your chezmoi, create a chezmoi script and using template variables and run `dotpak install -g <group>` to have a new computer ready to go. A more thorough tutorial will come.
 
