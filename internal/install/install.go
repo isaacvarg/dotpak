@@ -25,6 +25,7 @@ func Install(group string) error {
 	var aur []string
 	var flatpak []string
 	var omarchy []string
+	var mise []string
 
 	for _, e := range groupData {
 		switch e.InstallType {
@@ -38,6 +39,8 @@ func Install(group string) error {
 			flatpak = append(flatpak, e.InstallCommand)
 		case "omarchy":
 			omarchy = append(omarchy, e.InstallCommand)
+		case "mise":
+			mise = append(mise, e.InstallCommand)
 		}
 	}
 
@@ -66,6 +69,13 @@ func Install(group string) error {
 		err = InstallOmarchyPlugins(omarchy)
 		if err != nil {
 			return fmt.Errorf("omarchy plugins installer failed: %w", err)
+		}
+	}
+
+	if len(mise) != 0 {
+		err = installMiseTools(mise)
+		if err != nil {
+			return err
 		}
 	}
 
