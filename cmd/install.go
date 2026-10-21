@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/isaacvarg/dotpak/internal/install"
 	"github.com/spf13/cobra"
 )
@@ -13,11 +11,7 @@ var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "installs packages from manifest",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := install.Install(installGroup)
-		if err != nil {
-			fmt.Println(err)
-		}
-		return nil
+		return install.Install(installGroup)
 	},
 }
 
