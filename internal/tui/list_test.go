@@ -448,8 +448,12 @@ func TestRunListRemoveAsksWithTheStoredName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remove prompt, got %v", err)
 	}
-	if view != "remove NeoVim?" {
-		t.Fatalf("view %q, want %q", view, "remove NeoVim?")
+	plain := stripANSI(view)
+	if !strings.Contains(plain, "remove NeoVim?") {
+		t.Fatalf("prompt %q, want the stored name", plain)
+	}
+	if !strings.Contains(plain, "y confirm • any other key cancel") {
+		t.Fatalf("prompt has no confirm or cancel hint\n%s", plain)
 	}
 	assertManifestUnchanged(t, before)
 }

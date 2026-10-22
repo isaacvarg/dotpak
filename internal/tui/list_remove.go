@@ -19,7 +19,8 @@ func (m listModel) cancelRemove() listModel {
 }
 
 func (m listModel) removePrompt() string {
-	return "remove " + m.entries[m.cursor].Name + "?"
+	return "remove " + m.entries[m.cursor].Name + "?\n\n" +
+		controlsStyle.Render("y confirm • any other key cancel")
 }
 
 func (m listModel) answerRemove(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
