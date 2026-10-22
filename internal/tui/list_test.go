@@ -510,6 +510,46 @@ func TestRunListRemoveConfirmsWithY(t *testing.T) {
 	}
 }
 
+const manifestAfterRemovingSpotify = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    },
+    {
+      "name": "ripgrep",
+      "group": "dev",
+      "install_type": "pacman",
+      "install_command": "ripgrep"
+    }
+  ]
+}`
+
+func TestRunListRemoveSelectsTheNextEntry(t *testing.T) {
+	writeManifest(t, filteredManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "j"}, {Text: "d"}, {Text: "y"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stripANSI(view), "spotify") {
+		t.Fatalf("removed entry still listed %q", view)
+	}
+	if got := selectedEntry(t, view, []string{"neovim", "node", "ripgrep"}); got != "node" {
+		t.Fatalf("selected %s, want node", got)
+	}
+	if got := readManifest(t); got != manifestAfterRemovingSpotify {
+		t.Fatalf("manifest\n%s\nwant\n%s", got, manifestAfterRemovingSpotify)
+	}
+}
+
 func TestRunListRemoveOtherKeyKeepsTheEntry(t *testing.T) {
 	before := writeManifest(t, filteredManifest)
 	baseline, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
