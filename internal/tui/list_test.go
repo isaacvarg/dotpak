@@ -334,6 +334,100 @@ func TestRunListMarksADifferentInstallCommand(t *testing.T) {
 	}
 }
 
+func TestRunListMovesWrapsAndQuits(t *testing.T) {
+	names := []string{"neovim", "spotify", "node", "ripgrep"}
+	quit := tea.KeyPressMsg{Text: "q"}
+	tests := []struct {
+		name         string
+		keys         []tea.KeyPressMsg
+		wantSelected string
+		unchanged    bool
+	}{
+		{name: "j moves down", keys: []tea.KeyPressMsg{{Text: "j"}, quit}, wantSelected: "spotify"},
+		{name: "down moves down", keys: []tea.KeyPressMsg{{Code: tea.KeyDown}, quit}, wantSelected: "spotify"},
+		{name: "k wraps to the last entry", keys: []tea.KeyPressMsg{{Text: "k"}, quit}, wantSelected: "ripgrep"},
+		{name: "up wraps to the last entry", keys: []tea.KeyPressMsg{{Code: tea.KeyUp}, quit}, wantSelected: "ripgrep"},
+		{
+			name:         "j wraps from the last entry",
+			keys:         []tea.KeyPressMsg{{Text: "k"}, {Text: "j"}, quit},
+			wantSelected: "neovim",
+		},
+		{
+			name:         "three j presses reach the last entry",
+			keys:         []tea.KeyPressMsg{{Text: "j"}, {Text: "j"}, {Text: "j"}, quit},
+			wantSelected: "ripgrep",
+		},
+		{name: "enter leaves the selection", keys: []tea.KeyPressMsg{{Code: tea.KeyEnter}, quit}, wantSelected: "neovim", unchanged: true},
+		{name: "slash does nothing", keys: []tea.KeyPressMsg{{Text: "/"}, quit}, wantSelected: "neovim", unchanged: true},
+		{name: "d does not change the manifest", keys: []tea.KeyPressMsg{{Text: "d"}, quit}, wantSelected: "neovim", unchanged: true},
+		{name: "e does not change the manifest", keys: []tea.KeyPressMsg{{Text: "e"}, quit}, wantSelected: "neovim", unchanged: true},
+		{name: "q quits", keys: []tea.KeyPressMsg{quit}, wantSelected: "neovim", unchanged: true},
+		{name: "esc quits", keys: []tea.KeyPressMsg{{Code: tea.KeyEscape}}, wantSelected: "neovim", unchanged: true},
+		{name: "ctrl+c quits", keys: []tea.KeyPressMsg{{Code: 'c', Mod: tea.ModCtrl}}, wantSelected: "neovim", unchanged: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, filteredManifest)
+			baseline, err := RunList("", "", true, []tea.KeyPressMsg{quit})
+			if err != nil {
+				t.Fatal(err)
+			}
+			view, err := RunList("", "", true, tt.keys)
+			if err != nil {
+				t.Fatalf("quit with an unchanged manifest, got %v", err)
+			}
+			assertManifestUnchanged(t, before)
+			if got := selectedEntry(t, view, names); got != tt.wantSelected {
+				t.Fatalf("selected %s, want %s", got, tt.wantSelected)
+			}
+			if tt.unchanged && view != baseline {
+				t.Fatalf("view changed\n%s\nwant\n%s", view, baseline)
+			}
+			if strings.Contains(view, "remove neovim?") {
+				t.Fatalf("remove prompt shown %q", view)
+			}
+		})
+	}
+}
+
+func TestRunListEmptyListIgnoresMovement(t *testing.T) {
+	writeManifest(t, "")
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "j"},
+		{Text: "k"},
+		{Code: tea.KeyDown},
+		{Code: tea.KeyUp},
+		{Text: "d"},
+		{Text: "e"},
+		{Text: "/"},
+		{Code: tea.KeyEnter},
+		{Text: "q"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view != emptyListView {
+		t.Fatalf("view\n%q\nwant\n%q", view, emptyListView)
+	}
+}
+
+func selectedEntry(t *testing.T, view string, names []string) string {
+	t.Helper()
+	var got string
+	for _, name := range names {
+		if strings.Contains(entryLine(t, view, name), colorSelected+name) {
+			if got != "" {
+				t.Fatalf("both %s and %s are selected", got, name)
+			}
+			got = name
+		}
+	}
+	if got == "" {
+		t.Fatal("no entry is selected")
+	}
+	return got
+}
+
 func entryLine(t *testing.T, view, name string) string {
 	t.Helper()
 	for _, line := range strings.Split(view, "\n") {

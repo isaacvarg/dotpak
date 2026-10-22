@@ -90,8 +90,27 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "q", "esc", "ctrl+c":
 		return m, tea.Quit
+	case "j", "down":
+		return m.move(1), nil
+	case "k", "up":
+		return m.move(-1), nil
+	default:
+		return m, nil
 	}
-	return m, nil
+}
+
+func (m listModel) move(delta int) listModel {
+	n := len(m.entries)
+	if n == 0 {
+		return m
+	}
+	m.cursor += delta
+	if m.cursor < 0 {
+		m.cursor = n - 1
+	} else if m.cursor >= n {
+		m.cursor = 0
+	}
+	return m
 }
 
 func (m listModel) View() tea.View {
