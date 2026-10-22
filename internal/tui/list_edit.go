@@ -27,6 +27,8 @@ type listEdit struct {
 	originalName   string
 	name           string
 	installType    string
+	group          string
+	command        string
 	err            string
 	nameInput      textinput.Model
 	commandInput   textinput.Model
@@ -102,10 +104,14 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "k", "up":
 			m.edit.groupIdx = wrap(m.edit.groupIdx-1, len(m.edit.groups))
 		case "enter":
+			m.edit.group = m.edit.groups[m.edit.groupIdx]
 			m.edit.step = editCommand
 		}
 		return m, nil
 	case editCommand:
+		if key.String() == "enter" {
+			return m.confirmEditCommand(), nil
+		}
 		m.edit.commandInput, _ = m.edit.commandInput.Update(key)
 		return m, nil
 	default:
@@ -165,6 +171,75 @@ func (m listModel) confirmEditName() listModel {
 	m.edit.name = name
 	m.edit.step = editInstallType
 	return m
+}
+
+func (m listModel) confirmEditCommand() listModel {
+	command := m.edit.commandInput.Value()
+	if command == "" {
+		command = m.edit.name
+	}
+	m.edit.command = command
+	return m.saveEdit()
+}
+
+func (m listModel) saveEdit() listModel {
+	mf, err := manifest.Load()
+	if err != nil {
+		return m.failEdit(err)
+	}
+	idx := -1
+	for i, existing := range mf.Manifest {
+		if strings.EqualFold(existing.Name, m.edit.originalName) {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return m.failEdit(manifest.ErrNotFound)
+	}
+	mf.Manifest[idx] = manifest.ManifestEntry{
+		Name:           m.edit.name,
+		Group:          m.edit.group,
+		InstallType:    manifest.InstallType(m.edit.installType),
+		InstallCommand: m.edit.command,
+	}
+	if err := mf.Save(); err != nil {
+		return m.failEdit(err)
+	}
+	return m.finishEdit(mf)
+}
+
+func (m listModel) failEdit(err error) listModel {
+	m.edit.step = editSaveFailed
+	m.edit.err = err.Error()
+	return m
+}
+
+func (m listModel) finishEdit(mf *manifest.Manifest) listModel {
+	oldCursor := m.cursor
+	name := m.edit.name
+	entries := filterEntries(mf.Manifest, m.filterGroup, m.filterInstallType)
+	next := newListModel(entries)
+	next.filterGroup = m.filterGroup
+	next.filterInstallType = m.filterInstallType
+	found := -1
+	for i, entry := range entries {
+		if entry.Name == name {
+			found = i
+			break
+		}
+	}
+	switch {
+	case found >= 0:
+		next.cursor = found
+	case len(entries) == 0:
+		next.cursor = 0
+	case oldCursor < len(entries):
+		next.cursor = oldCursor
+	default:
+		next.cursor = len(entries) - 1
+	}
+	return next
 }
 
 func (m listModel) renderEdit() string {

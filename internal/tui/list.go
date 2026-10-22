@@ -32,6 +32,8 @@ func RunList(group, installType string, terminal bool, keys []tea.KeyPressMsg) (
 	}
 
 	m := newListModel(filterEntries(mf.Manifest, group, installType))
+	m.filterGroup = group
+	m.filterInstallType = installType
 	if keys == nil {
 		final, err := tea.NewProgram(m).Run()
 		if err != nil {
@@ -57,11 +59,13 @@ func filterEntries(entries []manifest.ManifestEntry, group, installType string) 
 }
 
 type listModel struct {
-	entries    []manifest.ManifestEntry
-	cursor     int
-	groupWidth int
-	typeWidth  int
-	edit       *listEdit
+	entries           []manifest.ManifestEntry
+	cursor            int
+	groupWidth        int
+	typeWidth         int
+	filterGroup       string
+	filterInstallType string
+	edit              *listEdit
 }
 
 func newListModel(entries []manifest.ManifestEntry) listModel {

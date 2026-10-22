@@ -399,6 +399,253 @@ func TestRunListEditGroupMovesAndWraps(t *testing.T) {
 	}
 }
 
+const editPairManifest = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    }
+  ]
+}
+`
+
+func TestRunListEditClearingTheCommandUsesTheNewName(t *testing.T) {
+	writeManifest(t, editPairManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "nvim"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Code: tea.KeyEnter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertBackOnList(t, view)
+	if got := selectedEntry(t, view, []string{"nvim", "spotify"}); got != "nvim" {
+		t.Fatalf("selected %s, want nvim", got)
+	}
+	assertManifestJSON(t, `{
+  "manifest": [
+    {
+      "name": "nvim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "nvim"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    }
+  ]
+}`)
+}
+
+func TestRunListEditCaseOnlyRenameReplacesTheEntry(t *testing.T) {
+	writeManifest(t, editPairManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "Neovim"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertBackOnList(t, view)
+	if got := selectedEntry(t, view, []string{"Neovim", "spotify"}); got != "Neovim" {
+		t.Fatalf("selected %s, want Neovim", got)
+	}
+	if !strings.Contains(stripANSI(entryLine(t, view, "Neovim")), "\uEA85") {
+		t.Fatal("case-only rename lost the different install command")
+	}
+	assertManifestJSON(t, `{
+  "manifest": [
+    {
+      "name": "Neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    }
+  ]
+}`)
+}
+
+func TestRunListEditWritesEveryFieldOnce(t *testing.T) {
+	writeManifest(t, editPairManifest)
+	beforeGroups := writeGroups(t, `{
+  "groups": [
+    {"name": "shell"}
+  ]
+}
+`)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: tea.KeyEnter},
+		{Text: "j"},
+		{Code: tea.KeyEnter},
+		{Text: "j"},
+		{Code: tea.KeyEnter},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "nvim-bin"},
+		{Code: tea.KeyEnter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertGroupsUnchanged(t, beforeGroups)
+	assertBackOnList(t, view)
+	if got := selectedEntry(t, view, []string{"neovim", "spotify"}); got != "neovim" {
+		t.Fatalf("selected %s, want neovim", got)
+	}
+	assertManifestJSON(t, `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "shell",
+      "install_type": "aur",
+      "install_command": "nvim-bin"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    }
+  ]
+}`)
+}
+
+func TestRunListEditDoesNotCreateAGroup(t *testing.T) {
+	writeManifest(t, `{
+  "manifest": [
+    {
+      "name": "widget",
+      "group": "orphans",
+      "install_type": "omarchy",
+      "install_command": "widget"
+    }
+  ]
+}
+`)
+	beforeGroups := writeGroups(t, `{
+  "groups": [
+    {"name": "shell"}
+  ]
+}
+`)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "gadget"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertGroupsUnchanged(t, beforeGroups)
+	assertBackOnList(t, view)
+	assertManifestJSON(t, `{
+  "manifest": [
+    {
+      "name": "gadget",
+      "group": "orphans",
+      "install_type": "omarchy",
+      "install_command": "widget"
+    }
+  ]
+}`)
+}
+
+func TestRunListEditReturnsToTheEntryInsideTheFilter(t *testing.T) {
+	writeManifest(t, editPairManifest)
+	view, err := RunList("media", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "music"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Code: tea.KeyEnter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertBackOnList(t, view)
+	plain := stripANSI(view)
+	if strings.Contains(plain, "neovim") {
+		t.Fatalf("group filter was forgotten\n%s", plain)
+	}
+	if !strings.Contains(entryLine(t, view, "music"), colorSelected+"music") {
+		t.Fatalf("edited entry is not selected\n%s", view)
+	}
+	assertGroupsAbsent(t)
+	assertManifestJSON(t, `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "music",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "music"
+    }
+  ]
+}`)
+}
+
+func assertBackOnList(t *testing.T, view string) {
+	t.Helper()
+	if strings.Contains(view, "What is the ") || strings.Contains(view, "Which group?") {
+		t.Fatalf("edit did not return to the list\n%s", view)
+	}
+	if !strings.Contains(view, "j/k move • d remove • e edit • q quit") {
+		t.Fatalf("list hint missing\n%s", view)
+	}
+}
+
+func assertManifestJSON(t *testing.T, want string) {
+	t.Helper()
+	path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "manifest.json")
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Fatalf("manifest\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestRunListEditCommandStartsOnTheCurrentValue(t *testing.T) {
 	before := writeManifest(t, editTypesManifest)
 	view, err := RunList("", "", true, []tea.KeyPressMsg{
