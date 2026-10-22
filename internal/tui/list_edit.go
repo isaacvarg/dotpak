@@ -44,6 +44,7 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.edit = nil
 		return m, nil
 	default:
+		m.edit.nameInput, _ = m.edit.nameInput.Update(key)
 		return m, nil
 	}
 }

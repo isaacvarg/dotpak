@@ -50,3 +50,29 @@ func TestRunListEditOpensOnTheSelectedName(t *testing.T) {
 		})
 	}
 }
+
+func TestRunListEditNameStepTakesLetters(t *testing.T) {
+	before := writeManifest(t, oneEntryManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Text: "j"},
+		{Text: "k"},
+		{Text: "d"},
+		{Text: "e"},
+		{Code: 'x'},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	plain := stripANSI(view)
+	if !strings.Contains(plain, "neovimjkde") {
+		t.Fatalf("name step did not take j, k, d, and e as characters\n%s", plain)
+	}
+	if strings.Contains(plain, "neovimjkdex") {
+		t.Fatalf("a code-only key inserted a character\n%s", plain)
+	}
+	if strings.Contains(view, "What is the install type?") {
+		t.Fatalf("letters left the name step\n%s", view)
+	}
+}
