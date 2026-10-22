@@ -13,7 +13,7 @@ import (
 var devCheckoutVersion = regexp.MustCompile(`^dev \([0-9a-fA-F]+\)$`)
 
 func InstallOmarchyPlugins(names []string) error {
-	if err := DeterctOmarchyPluginReady(); err != nil {
+	if err := DetectOmarchyPluginReady(); err != nil {
 		return err
 	}
 
@@ -99,7 +99,7 @@ func versionAtLeast(got, min []int) bool {
 	return true
 }
 
-func DeterctOmarchyPluginReady() error {
+func DetectOmarchyPluginReady() error {
 	out, err := exec.Command("omarchy", "version").Output()
 	if err != nil {
 		return fmt.Errorf("omarchy does not appear to be installed")
