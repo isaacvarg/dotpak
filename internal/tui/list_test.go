@@ -429,6 +429,231 @@ const longNameManifest = `{
 }
 `
 
+const storedNameManifest = `{
+  "manifest": [
+    {
+      "name": "NeoVim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    }
+  ]
+}
+`
+
+func TestRunListRemoveAsksWithTheStoredName(t *testing.T) {
+	before := writeManifest(t, storedNameManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}})
+	if err != nil {
+		t.Fatalf("remove prompt, got %v", err)
+	}
+	if view != "remove NeoVim?" {
+		t.Fatalf("view %q, want %q", view, "remove NeoVim?")
+	}
+	assertManifestUnchanged(t, before)
+}
+
+const manifestAfterRemovingNeovim = `{
+  "manifest": [
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    },
+    {
+      "name": "ripgrep",
+      "group": "dev",
+      "install_type": "pacman",
+      "install_command": "ripgrep"
+    }
+  ]
+}`
+
+func TestRunListRemoveConfirmsWithY(t *testing.T) {
+	tests := []struct {
+		name string
+		key  tea.KeyPressMsg
+	}{
+		{name: "y", key: tea.KeyPressMsg{Text: "y"}},
+		{name: "Y", key: tea.KeyPressMsg{Text: "Y"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writeManifest(t, filteredManifest)
+			view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, tt.key})
+			if err != nil {
+				t.Fatalf("stay in the list after remove, got %v", err)
+			}
+			if strings.Contains(view, "remove neovim?") {
+				t.Fatalf("prompt still shown %q", view)
+			}
+			if strings.Contains(stripANSI(view), "neovim") {
+				t.Fatalf("removed entry still listed %q", view)
+			}
+			if got := selectedEntry(t, view, []string{"spotify", "node", "ripgrep"}); got != "spotify" {
+				t.Fatalf("selected %s, want spotify", got)
+			}
+			if !strings.Contains(view, "j/k move • d remove • e edit • q quit") {
+				t.Fatalf("left the list %q", view)
+			}
+			if got := readManifest(t); got != manifestAfterRemovingNeovim {
+				t.Fatalf("manifest\n%s\nwant\n%s", got, manifestAfterRemovingNeovim)
+			}
+		})
+	}
+}
+
+const manifestAfterRemovingSpotify = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    },
+    {
+      "name": "ripgrep",
+      "group": "dev",
+      "install_type": "pacman",
+      "install_command": "ripgrep"
+    }
+  ]
+}`
+
+const manifestAfterRemovingRipgrep = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    }
+  ]
+}`
+
+func TestRunListRemoveLeavesAnEmptyList(t *testing.T) {
+	writeManifest(t, oneEntryManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, {Text: "y"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view != emptyListView {
+		t.Fatalf("view\n%q\nwant\n%q", view, emptyListView)
+	}
+	const want = `{
+  "manifest": []
+}`
+	if got := readManifest(t); got != want {
+		t.Fatalf("manifest\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestRunListRemoveSelectsTheNewLastEntry(t *testing.T) {
+	writeManifest(t, filteredManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "j"},
+		{Text: "j"},
+		{Text: "j"},
+		{Text: "d"},
+		{Text: "y"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stripANSI(view), "ripgrep") {
+		t.Fatalf("removed entry still listed %q", view)
+	}
+	if got := selectedEntry(t, view, []string{"neovim", "spotify", "node"}); got != "node" {
+		t.Fatalf("selected %s, want node", got)
+	}
+	if got := readManifest(t); got != manifestAfterRemovingRipgrep {
+		t.Fatalf("manifest\n%s\nwant\n%s", got, manifestAfterRemovingRipgrep)
+	}
+}
+
+func TestRunListRemoveSelectsTheNextEntry(t *testing.T) {
+	writeManifest(t, filteredManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "j"}, {Text: "d"}, {Text: "y"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stripANSI(view), "spotify") {
+		t.Fatalf("removed entry still listed %q", view)
+	}
+	if got := selectedEntry(t, view, []string{"neovim", "node", "ripgrep"}); got != "node" {
+		t.Fatalf("selected %s, want node", got)
+	}
+	if got := readManifest(t); got != manifestAfterRemovingSpotify {
+		t.Fatalf("manifest\n%s\nwant\n%s", got, manifestAfterRemovingSpotify)
+	}
+}
+
+func TestRunListRemoveOtherKeyKeepsTheEntry(t *testing.T) {
+	before := writeManifest(t, filteredManifest)
+	baseline, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, {Text: "x"}})
+	if err != nil {
+		t.Fatalf("cancel remove, got %v", err)
+	}
+	if view != baseline {
+		t.Fatalf("view\n%s\nwant\n%s", view, baseline)
+	}
+	assertManifestUnchanged(t, before)
+	if strings.Contains(view, "remove neovim?") {
+		t.Fatalf("remove prompt shown %q", view)
+	}
+}
+
+func TestRunListRemovePromptIgnoresMovement(t *testing.T) {
+	keys := []tea.KeyPressMsg{
+		{Text: "j"},
+		{Text: "k"},
+		{Code: tea.KeyDown},
+		{Code: tea.KeyUp},
+	}
+	for _, key := range keys {
+		t.Run(key.String(), func(t *testing.T) {
+			before := writeManifest(t, filteredManifest)
+			view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, key})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if view != "remove neovim?" {
+				t.Fatalf("view %q, want %q", view, "remove neovim?")
+			}
+			assertManifestUnchanged(t, before)
+		})
+	}
+}
+
 func TestRunListCutsALongName(t *testing.T) {
 	const (
 		fullName  = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -550,6 +775,15 @@ func writeManifest(t *testing.T, body string) []byte {
 		t.Fatal(err)
 	}
 	return payload
+}
+
+func readManifest(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 func assertManifestUnchanged(t *testing.T, before []byte) {

@@ -65,6 +65,7 @@ type listModel struct {
 	typeWidth         int
 	filterGroup       string
 	filterInstallType string
+	confirming        bool
 	edit              *listEdit
 }
 
@@ -96,6 +97,9 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	if m.confirming {
+		return m.answerRemove(key)
+	}
 	switch key.String() {
 	case "q", "esc", "ctrl+c":
 		return m, tea.Quit
@@ -103,6 +107,8 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.move(1), nil
 	case "k", "up":
 		return m.move(-1), nil
+	case "d":
+		return m.askRemove(), nil
 	case "e":
 		if len(m.entries) == 0 {
 			return m, nil
@@ -135,6 +141,9 @@ func (m listModel) View() tea.View {
 }
 
 func (m listModel) render() string {
+	if m.confirming {
+		return m.removePrompt()
+	}
 	var b strings.Builder
 	b.WriteString(m.headerLine())
 	b.WriteByte('\n')
