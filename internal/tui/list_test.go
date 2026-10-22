@@ -510,6 +510,25 @@ func TestRunListRemoveConfirmsWithY(t *testing.T) {
 	}
 }
 
+func TestRunListRemoveOtherKeyKeepsTheEntry(t *testing.T) {
+	before := writeManifest(t, filteredManifest)
+	baseline, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, {Text: "x"}})
+	if err != nil {
+		t.Fatalf("cancel remove, got %v", err)
+	}
+	if view != baseline {
+		t.Fatalf("view\n%s\nwant\n%s", view, baseline)
+	}
+	assertManifestUnchanged(t, before)
+	if strings.Contains(view, "remove neovim?") {
+		t.Fatalf("remove prompt shown %q", view)
+	}
+}
+
 func TestRunListRemovePromptIgnoresMovement(t *testing.T) {
 	keys := []tea.KeyPressMsg{
 		{Text: "j"},
