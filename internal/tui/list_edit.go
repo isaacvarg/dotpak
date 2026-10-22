@@ -6,6 +6,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/isaacvarg/dotpak/internal/groups"
 	"github.com/isaacvarg/dotpak/internal/manifest"
 )
 
@@ -16,29 +17,42 @@ type editStep int
 const (
 	editName editStep = iota
 	editInstallType
+	editGroup
+	editSaveFailed
 )
 
 type listEdit struct {
 	step           editStep
 	originalName   string
 	name           string
+	installType    string
 	err            string
 	nameInput      textinput.Model
 	installTypeIdx int
+	groups         []string
+	groupIdx       int
 }
 
 func (m listModel) beginEdit() listModel {
 	entry := m.entries[m.cursor]
+	lg, err := groups.Load()
+	if err != nil {
+		m.edit = &listEdit{step: editSaveFailed, err: err.Error()}
+		return m
+	}
 	name := textinput.New()
 	name.Prompt = "› "
 	name.SetWidth(40)
 	name.Focus()
 	name.SetValue(entry.Name)
+	choices := editGroupChoices(lg.Names(), entry.Group)
 	m.edit = &listEdit{
 		step:           editName,
 		originalName:   entry.Name,
 		nameInput:      name,
 		installTypeIdx: installTypeIndex(entry.InstallType),
+		groups:         choices,
+		groupIdx:       groupIndex(choices, entry.Group),
 	}
 	return m
 }
@@ -68,6 +82,17 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.edit.installTypeIdx = wrap(m.edit.installTypeIdx+1, len(editInstallTypes))
 		case "k", "up":
 			m.edit.installTypeIdx = wrap(m.edit.installTypeIdx-1, len(editInstallTypes))
+		case "enter":
+			m.edit.installType = editInstallTypes[m.edit.installTypeIdx]
+			m.edit.step = editGroup
+		}
+		return m, nil
+	case editGroup:
+		switch key.String() {
+		case "j", "down":
+			m.edit.groupIdx = wrap(m.edit.groupIdx+1, len(m.edit.groups))
+		case "k", "up":
+			m.edit.groupIdx = wrap(m.edit.groupIdx-1, len(m.edit.groups))
 		}
 		return m, nil
 	default:
@@ -78,6 +103,25 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 func installTypeIndex(current manifest.InstallType) int {
 	for i, name := range editInstallTypes {
 		if name == string(current) {
+			return i
+		}
+	}
+	return 0
+}
+
+func editGroupChoices(existing []string, current string) []string {
+	names := append([]string(nil), existing...)
+	for _, name := range names {
+		if name == current {
+			return names
+		}
+	}
+	return append(names, current)
+}
+
+func groupIndex(names []string, current string) int {
+	for i, name := range names {
+		if name == current {
 			return i
 		}
 	}
@@ -114,6 +158,10 @@ func (m listModel) renderEdit() string {
 	switch m.edit.step {
 	case editInstallType:
 		return m.renderEditInstallType()
+	case editGroup:
+		return m.renderEditGroup()
+	case editSaveFailed:
+		return errorStyle.Render(m.edit.err)
 	default:
 		return m.renderEditName()
 	}
@@ -138,6 +186,15 @@ func (m listModel) renderEditInstallType() string {
 	b.WriteString(questionStyle.Render("What is the install type?"))
 	b.WriteString("\n\n")
 	b.WriteString(editChoices(editInstallTypes, m.edit.installTypeIdx, sourceColors))
+	b.WriteString(controlsStyle.Render("j/k move • enter select"))
+	return b.String()
+}
+
+func (m listModel) renderEditGroup() string {
+	var b strings.Builder
+	b.WriteString(questionStyle.Render("Which group?"))
+	b.WriteString("\n\n")
+	b.WriteString(editChoices(m.edit.groups, m.edit.groupIdx, nil))
 	b.WriteString(controlsStyle.Render("j/k move • enter select"))
 	return b.String()
 }

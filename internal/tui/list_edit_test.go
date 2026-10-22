@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -259,6 +261,187 @@ func TestRunListEditInstallTypeMovesAndWraps(t *testing.T) {
 				t.Fatalf("selected %s, want %s\n%s", got, tt.want, plain)
 			}
 		})
+	}
+}
+
+const storedGroups = `{
+  "groups": [
+    {"name": "shell"},
+    {"name": "dev"}
+  ]
+}
+`
+
+const storedGroupsWithAll = `{
+  "groups": [
+    {"name": "all"},
+    {"name": "shell"}
+  ]
+}
+`
+
+func TestRunListEditGroupOffersExistingGroups(t *testing.T) {
+	tests := []struct {
+		name    string
+		entry   string
+		groups  string
+		want    []string
+		current string
+	}{
+		{
+			name:    "only all",
+			entry:   `{"name":"neovim","group":"all","install_type":"pacman","install_command":"neovim"}`,
+			want:    []string{"all"},
+			current: "all",
+		},
+		{
+			name:    "stored groups",
+			entry:   `{"name":"zsh","group":"shell","install_type":"aur","install_command":"zsh"}`,
+			groups:  storedGroups,
+			want:    []string{"all", "shell", "dev"},
+			current: "shell",
+		},
+		{
+			name:    "current group missing from the list",
+			entry:   `{"name":"widget","group":"orphans","install_type":"omarchy","install_command":"widget"}`,
+			groups:  storedGroups,
+			want:    []string{"all", "shell", "dev", "orphans"},
+			current: "orphans",
+		},
+		{
+			name:    "stored all is not duplicated",
+			entry:   `{"name":"neovim","group":"all","install_type":"pacman","install_command":"neovim"}`,
+			groups:  storedGroupsWithAll,
+			want:    []string{"all", "shell"},
+			current: "all",
+		},
+		{
+			name:    "current group case is kept",
+			entry:   `{"name":"neovim","group":"ALL","install_type":"pacman","install_command":"neovim"}`,
+			groups:  storedGroupsWithAll,
+			want:    []string{"all", "shell", "ALL"},
+			current: "ALL",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writeManifest(t, `{"manifest":[`+tt.entry+`]}`)
+			var before []byte
+			if tt.groups != "" {
+				before = writeGroups(t, tt.groups)
+			}
+			view, err := RunList("", "", true, []tea.KeyPressMsg{
+				{Text: "e"},
+				{Code: tea.KeyEnter},
+				{Code: tea.KeyEnter},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			plain := stripANSI(view)
+			if !strings.Contains(plain, "Which group?") {
+				t.Fatalf("group step missing\n%s", plain)
+			}
+			if strings.Contains(plain, "What is the install type?") {
+				t.Fatalf("still on install type\n%s", plain)
+			}
+			if got := choiceLines(plain); strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Fatalf("groups %v, want %v\n%s", got, tt.want, plain)
+			}
+			if got := selectedChoice(t, plain); got != tt.current {
+				t.Fatalf("selected %s, want %s", got, tt.current)
+			}
+			if tt.groups == "" {
+				assertGroupsAbsent(t)
+			} else {
+				assertGroupsUnchanged(t, before)
+			}
+		})
+	}
+}
+
+func TestRunListEditGroupMovesAndWraps(t *testing.T) {
+	enter := tea.KeyPressMsg{Code: tea.KeyEnter}
+	// widget is selected. Choices are all, shell, dev, orphans, with orphans selected.
+	open := []tea.KeyPressMsg{{Text: "e"}, enter, enter}
+	tests := []struct {
+		name string
+		keys []tea.KeyPressMsg
+		want string
+	}{
+		{name: "j wraps from the last group", keys: append(append([]tea.KeyPressMsg{}, open...), tea.KeyPressMsg{Text: "j"}), want: "all"},
+		{name: "down wraps from the last group", keys: append(append([]tea.KeyPressMsg{}, open...), tea.KeyPressMsg{Code: tea.KeyDown}), want: "all"},
+		{name: "k moves up", keys: append(append([]tea.KeyPressMsg{}, open...), tea.KeyPressMsg{Text: "k"}), want: "dev"},
+		{name: "up moves up", keys: append(append([]tea.KeyPressMsg{}, open...), tea.KeyPressMsg{Code: tea.KeyUp}), want: "dev"},
+		{name: "k wraps from all", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "e"}, enter, enter, {Text: "k"}}, want: "dev"},
+		{name: "j moves down from all", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "e"}, enter, enter, {Text: "j"}}, want: "shell"},
+	}
+	manifest := `{
+  "manifest": [
+    {"name":"widget","group":"orphans","install_type":"omarchy","install_command":"widget"},
+    {"name":"zsh","group":"all","install_type":"pacman","install_command":"zsh"}
+  ]
+}`
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writeManifest(t, manifest)
+			before := writeGroups(t, storedGroups)
+			view, err := RunList("", "", true, tt.keys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertGroupsUnchanged(t, before)
+			plain := stripANSI(view)
+			if got := selectedChoice(t, plain); got != tt.want {
+				t.Fatalf("selected %s, want %s\n%s", got, tt.want, plain)
+			}
+		})
+	}
+}
+
+func choiceLines(plain string) []string {
+	var got []string
+	for _, line := range strings.Split(plain, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "Which ") || strings.Contains(line, "move") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "- ")
+		got = append(got, strings.TrimSpace(line))
+	}
+	return got
+}
+
+func writeGroups(t *testing.T, body string) []byte {
+	t.Helper()
+	dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte(body)
+	if err := os.WriteFile(filepath.Join(dir, "groups.json"), payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
+
+func assertGroupsAbsent(t *testing.T) {
+	t.Helper()
+	path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "groups.json")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("groups file appeared: %v", err)
+	}
+}
+
+func assertGroupsUnchanged(t *testing.T, before []byte) {
+	t.Helper()
+	path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "groups.json")
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("groups changed\nbefore %s\nafter %s", before, after)
 	}
 }
 
