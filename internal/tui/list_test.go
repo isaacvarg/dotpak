@@ -453,6 +453,28 @@ func TestRunListRemoveAsksWithTheStoredName(t *testing.T) {
 	assertManifestUnchanged(t, before)
 }
 
+func TestRunListRemovePromptIgnoresMovement(t *testing.T) {
+	keys := []tea.KeyPressMsg{
+		{Text: "j"},
+		{Text: "k"},
+		{Code: tea.KeyDown},
+		{Code: tea.KeyUp},
+	}
+	for _, key := range keys {
+		t.Run(key.String(), func(t *testing.T) {
+			before := writeManifest(t, filteredManifest)
+			view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, key})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if view != "remove neovim?" {
+				t.Fatalf("view %q, want %q", view, "remove neovim?")
+			}
+			assertManifestUnchanged(t, before)
+		})
+	}
+}
+
 func TestRunListCutsALongName(t *testing.T) {
 	const (
 		fullName  = "abcdefghijklmnopqrstuvwxyz0123456789"
