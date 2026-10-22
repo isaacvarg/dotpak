@@ -429,6 +429,30 @@ const longNameManifest = `{
 }
 `
 
+const storedNameManifest = `{
+  "manifest": [
+    {
+      "name": "NeoVim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    }
+  ]
+}
+`
+
+func TestRunListRemoveAsksWithTheStoredName(t *testing.T) {
+	before := writeManifest(t, storedNameManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}})
+	if err != nil {
+		t.Fatalf("remove prompt, got %v", err)
+	}
+	if view != "remove NeoVim?" {
+		t.Fatalf("view %q, want %q", view, "remove NeoVim?")
+	}
+	assertManifestUnchanged(t, before)
+}
+
 func TestRunListCutsALongName(t *testing.T) {
 	const (
 		fullName  = "abcdefghijklmnopqrstuvwxyz0123456789"
