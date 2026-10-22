@@ -241,9 +241,16 @@ func (m listModel) finishEdit(mf *manifest.Manifest) listModel {
 	visible := next.visibleIndices()
 	switch {
 	case len(visible) == 0:
-		if oldCursor >= len(entries) {
+		switch {
+		case found >= 0 && found+1 < len(entries):
+			next.cursor = found + 1
+		case found > 0:
+			next.cursor = found - 1
+		case found == 0:
+			next.cursor = 0
+		case oldCursor >= len(entries):
 			next.cursor = len(entries) - 1
-		} else {
+		default:
 			next.cursor = oldCursor
 		}
 	case oldPos >= len(visible):

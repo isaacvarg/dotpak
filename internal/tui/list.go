@@ -175,7 +175,7 @@ func (m listModel) View() tea.View {
 		view.AltScreen = true
 	}
 	if m.prompting && m.edit == nil {
-		_, x := queryLine("/", m.prompt.Value(), m.prompt.Position(), m.width)
+		_, x := queryLine("/", m.prompt.Value(), m.prompt.Position(), m.width, true)
 		view.Cursor = tea.NewCursor(x, strings.Count(content, "\n"))
 	}
 	return view
@@ -220,12 +220,12 @@ func (m listModel) render() string {
 	}
 	b.WriteByte('\n')
 	if m.prompting {
-		line, _ := queryLine("/", m.prompt.Value(), m.prompt.Position(), m.width)
+		line, _ := queryLine("/", m.prompt.Value(), m.prompt.Position(), m.width, true)
 		b.WriteString(line)
 		return b.String()
 	}
 	if m.query != "" {
-		line, _ := queryLine("/", m.query, len([]rune(m.query)), m.width)
+		line, _ := queryLine("/", m.query, len([]rune(m.query)), m.width, false)
 		b.WriteString(line)
 		b.WriteByte('\n')
 	}

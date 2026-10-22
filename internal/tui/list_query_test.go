@@ -8,7 +8,7 @@ import (
 	"github.com/isaacvarg/dotpak/internal/manifest"
 )
 
-func TestRunListQueryFiltersTheLoadedNames(t *testing.T) {
+func TestRunListQueryNarrowsTheLoadedNames(t *testing.T) {
 	before := writeManifest(t, filteredManifest)
 	baseline, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
 	if err != nil {
@@ -495,6 +495,29 @@ func TestRunListQueryRemoveAndEditUseTheShownRows(t *testing.T) {
 	if !strings.Contains(readManifest(t), "runtime") {
 		t.Fatalf("manifest\n%s", readManifest(t))
 	}
+
+	writeManifest(t, filteredManifest)
+	cleared, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "/"},
+		{Text: "n"}, {Text: "e"}, {Text: "o"},
+		{Code: tea.KeyEnter},
+		{Text: "e"},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "r"}, {Text: "u"}, {Text: "n"}, {Text: "t"}, {Text: "i"}, {Text: "m"}, {Text: "e"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Text: "/"},
+		{Code: tea.KeyEnter},
+		{Text: "q"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := selectedEntry(t, cleared, []string{"runtime", "spotify", "node", "ripgrep"}); got != "spotify" {
+		t.Fatalf("selection after a query drop was %s, want spotify\n%s", got, stripANSI(cleared))
+	}
 }
 
 func TestRunListQuerySlashInAnEditIsText(t *testing.T) {
@@ -564,11 +587,19 @@ func TestRunListQueryCutsALongLine(t *testing.T) {
 	for _, r := range "0123456789" {
 		keys = append(keys, tea.KeyPressMsg{Text: string(r)})
 	}
-	keys = append(keys, tea.KeyPressMsg{Code: tea.KeyEnter})
 	for _, key := range keys {
 		next, _ := current.Update(key)
 		current = next
 	}
+	typing := current.View()
+	if typing.Cursor == nil || typing.Cursor.X < 0 || typing.Cursor.X >= 8 {
+		t.Fatalf("cursor %+v is off an 8-column screen", typing.Cursor)
+	}
+	if lastLine(typing.Content) != "/…56789" {
+		t.Fatalf("prompt %q", lastLine(typing.Content))
+	}
+	next, _ := current.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	current = next
 	line := strings.Split(current.View().Content, "\n")
 	query := line[len(line)-2]
 	if query != "/…456789" {

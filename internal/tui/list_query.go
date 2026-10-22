@@ -141,9 +141,10 @@ func containsFold(name, query string) bool {
 	return false
 }
 
-// queryLine draws "/" and the query on one line. A known width keeps the
-// cursor on screen and cuts the head of a long query with an ellipsis.
-func queryLine(prefix, text string, pos, width int) (string, int) {
+// queryLine draws "/" and the query on one line. A known width cuts the head
+// of a long query with an ellipsis and keeps the tail. While a cursor is
+// shown it stays in the last on-screen cell, including the cell after the text.
+func queryLine(prefix, text string, pos, width int, showCursor bool) (string, int) {
 	runes := []rune(text)
 	if pos < 0 {
 		pos = 0
@@ -159,14 +160,25 @@ func queryLine(prefix, text string, pos, width int) (string, int) {
 	if avail <= 0 {
 		return ansi.Truncate(prefix, width, ""), 0
 	}
-	if lipgloss.Width(text) <= avail {
-		return prefix + text, prefixW + lipgloss.Width(string(runes[:pos]))
+	caret := 0
+	if showCursor && pos == len(runes) {
+		caret = 1
+	}
+	if lipgloss.Width(text)+caret <= avail {
+		x := prefixW + lipgloss.Width(string(runes[:pos]))
+		if x >= width {
+			x = width - 1
+		}
+		return prefix + text, x
 	}
 	ellipsis := "…"
 	ellipsisW := lipgloss.Width(ellipsis)
-	budget := avail - ellipsisW
+	budget := avail - ellipsisW - caret
 	if budget < 1 {
-		budget = avail
+		budget = avail - caret
+		if budget < 1 {
+			budget = 1
+		}
 		ellipsis = ""
 		ellipsisW = 0
 	}
@@ -181,11 +193,18 @@ func queryLine(prefix, text string, pos, width int) (string, int) {
 	for start < pos && lipgloss.Width(string(runes[start:end])) > budget {
 		start++
 	}
+	if start == 0 {
+		ellipsis = ""
+		ellipsisW = 0
+	}
 	shown := string(runes[start:end])
 	cursorX := prefixW + lipgloss.Width(string(runes[start:pos]))
 	if start > 0 {
 		shown = ellipsis + shown
 		cursorX += ellipsisW
+	}
+	if cursorX >= width {
+		cursorX = width - 1
 	}
 	return prefix + shown, cursorX
 }
