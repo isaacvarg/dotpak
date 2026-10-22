@@ -17,6 +17,7 @@ const (
 type listEdit struct {
 	step      editStep
 	name      string
+	err       string
 	nameInput textinput.Model
 }
 
@@ -59,7 +60,13 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m listModel) confirmEditName() listModel {
-	m.edit.name = strings.TrimSpace(m.edit.nameInput.Value())
+	name := strings.TrimSpace(m.edit.nameInput.Value())
+	if name == "" {
+		m.edit.err = "a name is required"
+		return m
+	}
+	m.edit.err = ""
+	m.edit.name = name
 	m.edit.step = editInstallType
 	return m
 }
@@ -78,6 +85,10 @@ func (m listModel) renderEditName() string {
 	b.WriteString(questionStyle.Render("What is the name?"))
 	b.WriteString("\n\n")
 	b.WriteString(m.edit.nameInput.View())
+	if m.edit.err != "" {
+		b.WriteString("\n\n")
+		b.WriteString(errorStyle.Render(m.edit.err))
+	}
 	b.WriteString("\n\n")
 	b.WriteString(controlsStyle.Render("enter confirm • esc back"))
 	return b.String()

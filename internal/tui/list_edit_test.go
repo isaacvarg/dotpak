@@ -94,3 +94,38 @@ func TestRunListEditConfirmsTheName(t *testing.T) {
 		t.Fatalf("name step still showing\n%s", view)
 	}
 }
+
+func TestRunListEditEmptyNameStays(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []tea.KeyPressMsg
+	}{
+		{
+			name: "cleared",
+			keys: []tea.KeyPressMsg{{Text: "e"}, {Code: 'u', Mod: tea.ModCtrl}, {Code: tea.KeyEnter}},
+		},
+		{
+			name: "spaces",
+			keys: []tea.KeyPressMsg{{Text: "e"}, {Code: 'u', Mod: tea.ModCtrl}, {Text: "   "}, {Code: tea.KeyEnter}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, oneEntryManifest)
+			view, err := RunList("", "", true, tt.keys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertManifestUnchanged(t, before)
+			if !strings.Contains(view, "What is the name?") {
+				t.Fatalf("left the name step\n%s", view)
+			}
+			if strings.Contains(view, "What is the install type?") {
+				t.Fatalf("empty name advanced\n%s", view)
+			}
+			if !strings.Contains(stripANSI(view), "a name is required") {
+				t.Fatalf("name step does not say a name is required\n%s", view)
+			}
+		})
+	}
+}
