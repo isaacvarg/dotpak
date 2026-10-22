@@ -1,12 +1,15 @@
 package tui
 
 import (
+	"image/color"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/isaacvarg/dotpak/internal/manifest"
 )
+
+var editInstallTypes = []string{"pacman", "aur", "mise", "omarchy", "flatpak"}
 
 type editStep int
 
@@ -16,11 +19,12 @@ const (
 )
 
 type listEdit struct {
-	step         editStep
-	originalName string
-	name         string
-	err          string
-	nameInput    textinput.Model
+	step           editStep
+	originalName   string
+	name           string
+	err            string
+	nameInput      textinput.Model
+	installTypeIdx int
 }
 
 func (m listModel) beginEdit() listModel {
@@ -31,9 +35,10 @@ func (m listModel) beginEdit() listModel {
 	name.Focus()
 	name.SetValue(entry.Name)
 	m.edit = &listEdit{
-		step:         editName,
-		originalName: entry.Name,
-		nameInput:    name,
+		step:           editName,
+		originalName:   entry.Name,
+		nameInput:      name,
+		installTypeIdx: installTypeIndex(entry.InstallType),
 	}
 	return m
 }
@@ -57,9 +62,26 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.edit.nameInput, _ = m.edit.nameInput.Update(key)
 		return m, nil
+	case editInstallType:
+		switch key.String() {
+		case "j", "down":
+			m.edit.installTypeIdx = wrap(m.edit.installTypeIdx+1, len(editInstallTypes))
+		case "k", "up":
+			m.edit.installTypeIdx = wrap(m.edit.installTypeIdx-1, len(editInstallTypes))
+		}
+		return m, nil
 	default:
 		return m, nil
 	}
+}
+
+func installTypeIndex(current manifest.InstallType) int {
+	for i, name := range editInstallTypes {
+		if name == string(current) {
+			return i
+		}
+	}
+	return 0
 }
 
 func (m listModel) confirmEditName() listModel {
@@ -91,7 +113,7 @@ func (m listModel) confirmEditName() listModel {
 func (m listModel) renderEdit() string {
 	switch m.edit.step {
 	case editInstallType:
-		return questionStyle.Render("What is the install type?")
+		return m.renderEditInstallType()
 	default:
 		return m.renderEditName()
 	}
@@ -108,5 +130,33 @@ func (m listModel) renderEditName() string {
 	}
 	b.WriteString("\n\n")
 	b.WriteString(controlsStyle.Render("enter confirm • esc back"))
+	return b.String()
+}
+
+func (m listModel) renderEditInstallType() string {
+	var b strings.Builder
+	b.WriteString(questionStyle.Render("What is the install type?"))
+	b.WriteString("\n\n")
+	b.WriteString(editChoices(editInstallTypes, m.edit.installTypeIdx, sourceColors))
+	b.WriteString(controlsStyle.Render("j/k move • enter select"))
+	return b.String()
+}
+
+func editChoices(options []string, idx int, colors map[string]color.Color) string {
+	var b strings.Builder
+	for i, option := range options {
+		if i == idx {
+			style := selectedStyle
+			if c, ok := colors[option]; ok {
+				style = style.Foreground(c)
+			}
+			b.WriteString("- ")
+			b.WriteString(style.Render(option))
+		} else {
+			b.WriteString("  ")
+			b.WriteString(option)
+		}
+		b.WriteByte('\n')
+	}
 	return b.String()
 }

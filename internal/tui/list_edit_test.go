@@ -170,3 +170,124 @@ func TestRunListEditDuplicateNameStays(t *testing.T) {
 		})
 	}
 }
+
+const editTypesManifest = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    }
+  ]
+}
+`
+
+func TestRunListEditInstallTypeStartsOnTheCurrentValue(t *testing.T) {
+	tests := []struct {
+		name string
+		keys []tea.KeyPressMsg
+		want string
+	}{
+		{name: "pacman", keys: []tea.KeyPressMsg{{Text: "e"}, {Code: tea.KeyEnter}}, want: "pacman"},
+		{name: "mise", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "e"}, {Code: tea.KeyEnter}}, want: "mise"},
+		{name: "flatpak", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "j"}, {Text: "e"}, {Code: tea.KeyEnter}}, want: "flatpak"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, editTypesManifest)
+			view, err := RunList("", "", true, tt.keys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertManifestUnchanged(t, before)
+			plain := stripANSI(view)
+			if !strings.Contains(view, "install type") || strings.Contains(view, "installation type") {
+				t.Fatalf("install type label\n%s", view)
+			}
+			if got := selectedChoice(t, plain); got != tt.want {
+				t.Fatalf("selected %s, want %s\n%s", got, tt.want, plain)
+			}
+			if tt.want == "pacman" {
+				assertChoiceOrder(t, plain, []string{"pacman", "aur", "mise", "omarchy", "flatpak"})
+			}
+		})
+	}
+}
+
+func TestRunListEditInstallTypeMovesAndWraps(t *testing.T) {
+	enter := tea.KeyPressMsg{Code: tea.KeyEnter}
+	tests := []struct {
+		name string
+		keys []tea.KeyPressMsg
+		want string
+	}{
+		{name: "j moves down", keys: []tea.KeyPressMsg{{Text: "e"}, enter, {Text: "j"}}, want: "aur"},
+		{name: "down moves down", keys: []tea.KeyPressMsg{{Text: "e"}, enter, {Code: tea.KeyDown}}, want: "aur"},
+		{name: "k wraps to flatpak", keys: []tea.KeyPressMsg{{Text: "e"}, enter, {Text: "k"}}, want: "flatpak"},
+		{name: "up wraps to flatpak", keys: []tea.KeyPressMsg{{Text: "e"}, enter, {Code: tea.KeyUp}}, want: "flatpak"},
+		{name: "j wraps from flatpak", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "j"}, {Text: "e"}, enter, {Text: "j"}}, want: "pacman"},
+		{name: "down wraps from flatpak", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "j"}, {Text: "e"}, enter, {Code: tea.KeyDown}}, want: "pacman"},
+		{name: "j moves from mise to omarchy", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "e"}, enter, {Text: "j"}}, want: "omarchy"},
+		{name: "k moves from mise to aur", keys: []tea.KeyPressMsg{{Text: "j"}, {Text: "e"}, enter, {Text: "k"}}, want: "aur"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, editTypesManifest)
+			view, err := RunList("", "", true, tt.keys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertManifestUnchanged(t, before)
+			plain := stripANSI(view)
+			if !strings.Contains(plain, "install type") {
+				t.Fatalf("left the install type step\n%s", plain)
+			}
+			if got := selectedChoice(t, plain); got != tt.want {
+				t.Fatalf("selected %s, want %s\n%s", got, tt.want, plain)
+			}
+		})
+	}
+}
+
+func selectedChoice(t *testing.T, plain string) string {
+	t.Helper()
+	var got string
+	for _, line := range strings.Split(plain, "\n") {
+		if !strings.HasPrefix(line, "- ") {
+			continue
+		}
+		if got != "" {
+			t.Fatalf("two choices selected in %q", plain)
+		}
+		got = strings.TrimSpace(strings.TrimPrefix(line, "- "))
+	}
+	if got == "" {
+		t.Fatalf("no selected choice in %q", plain)
+	}
+	return got
+}
+
+func assertChoiceOrder(t *testing.T, plain string, choices []string) {
+	t.Helper()
+	prev := -1
+	for _, choice := range choices {
+		at := strings.Index(plain, choice)
+		if at < 0 || at <= prev {
+			t.Fatalf("choices %v not in order in %q", choices, plain)
+		}
+		prev = at
+	}
+}
