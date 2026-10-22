@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -12,7 +13,7 @@ import (
 
 const (
 	listNameWidth = 32
-	listHint      = "j/k move • d remove • e edit • q quit"
+	listHint      = "j/k move • / query • d remove • e edit • q quit"
 )
 
 // RunList draws the manifest list until the session quits.
@@ -66,6 +67,12 @@ type listModel struct {
 	filterGroup       string
 	filterInstallType string
 	height            int
+	width             int
+	query             string
+	prompting         bool
+	prompt            textinput.Model
+	snapshotQuery     string
+	snapshotCursor    int
 	confirming        bool
 	edit              *listEdit
 }
@@ -93,6 +100,7 @@ func (m listModel) Init() tea.Cmd { return nil }
 func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
 		m.height = size.Height
+		m.width = size.Width
 		return m, nil
 	}
 	if m.edit != nil {
@@ -100,10 +108,16 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
+		if m.prompting {
+			return m.deliverPrompt(msg)
+		}
 		return m, nil
 	}
 	if m.confirming {
 		return m.answerRemove(key)
+	}
+	if m.prompting {
+		return m.updatePrompt(key)
 	}
 	switch key.String() {
 	case "q", "esc", "ctrl+c":
@@ -115,26 +129,39 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case "d":
 		return m.askRemove(), nil
 	case "e":
-		if len(m.entries) == 0 {
+		if !m.cursorVisible() {
 			return m, nil
 		}
 		return m.beginEdit(), nil
+	case "/":
+		return m.beginQuery(), nil
 	default:
 		return m, nil
 	}
 }
 
 func (m listModel) move(delta int) listModel {
-	n := len(m.entries)
-	if n == 0 {
+	visible := m.visibleIndices()
+	if len(visible) == 0 {
 		return m
 	}
-	m.cursor += delta
-	if m.cursor < 0 {
-		m.cursor = n - 1
-	} else if m.cursor >= n {
-		m.cursor = 0
+	pos := -1
+	for i, idx := range visible {
+		if idx == m.cursor {
+			pos = i
+			break
+		}
 	}
+	if pos < 0 {
+		return m
+	}
+	pos += delta
+	if pos < 0 {
+		pos = len(visible) - 1
+	} else if pos >= len(visible) {
+		pos = 0
+	}
+	m.cursor = visible[pos]
 	return m
 }
 
@@ -147,6 +174,10 @@ func (m listModel) View() tea.View {
 	if m.height > 0 {
 		view.AltScreen = true
 	}
+	if m.prompting && m.edit == nil {
+		_, x := queryLine("/", m.prompt.Value(), m.prompt.Position(), m.width)
+		view.Cursor = tea.NewCursor(x, strings.Count(content, "\n"))
+	}
 	return view
 }
 
@@ -154,22 +185,50 @@ func (m listModel) render() string {
 	if m.confirming {
 		return m.removePrompt()
 	}
-	start, end := 0, len(m.entries)
+	visible := m.visibleIndices()
+	pos := -1
+	for i, idx := range visible {
+		if idx == m.cursor {
+			pos = i
+			break
+		}
+	}
+	start, end := 0, len(visible)
 	if m.height > 0 {
 		room := m.height - 3
+		if m.query != "" && !m.prompting {
+			room--
+		}
 		if room < 1 {
 			room = 1
 		}
-		start, end = rowWindow(m.cursor, len(m.entries), room)
+		if pos < 0 {
+			if room > len(visible) {
+				room = len(visible)
+			}
+			end = room
+		} else {
+			start, end = rowWindow(pos, len(visible), room)
+		}
 	}
 	var b strings.Builder
 	b.WriteString(m.headerLine())
 	b.WriteByte('\n')
-	for i := start; i < end; i++ {
+	for _, i := range visible[start:end] {
 		b.WriteString(m.rowLine(i, m.entries[i]))
 		b.WriteByte('\n')
 	}
 	b.WriteByte('\n')
+	if m.prompting {
+		line, _ := queryLine("/", m.prompt.Value(), m.prompt.Position(), m.width)
+		b.WriteString(line)
+		return b.String()
+	}
+	if m.query != "" {
+		line, _ := queryLine("/", m.query, len([]rune(m.query)), m.width)
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
 	b.WriteString(listHint)
 	return b.String()
 }

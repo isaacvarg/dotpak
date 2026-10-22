@@ -207,12 +207,22 @@ func (m listModel) failEdit(err error) listModel {
 
 func (m listModel) finishEdit(mf *manifest.Manifest) listModel {
 	oldCursor := m.cursor
+	oldQuery := m.query
 	name := m.edit.entry.Name
+	oldPos := 0
+	for i, idx := range m.visibleIndices() {
+		if idx == oldCursor {
+			oldPos = i
+			break
+		}
+	}
 	entries := filterEntries(mf.Manifest, m.filterGroup, m.filterInstallType)
 	next := newListModel(entries)
 	next.filterGroup = m.filterGroup
 	next.filterInstallType = m.filterInstallType
 	next.height = m.height
+	next.width = m.width
+	next.query = oldQuery
 	found := -1
 	for i, entry := range entries {
 		if entry.Name == name {
@@ -220,15 +230,26 @@ func (m listModel) finishEdit(mf *manifest.Manifest) listModel {
 			break
 		}
 	}
-	switch {
-	case found >= 0:
+	if found >= 0 && containsFold(entries[found].Name, oldQuery) {
 		next.cursor = found
-	case len(entries) == 0:
+		return next
+	}
+	if len(entries) == 0 {
 		next.cursor = 0
-	case oldCursor < len(entries):
-		next.cursor = oldCursor
+		return next
+	}
+	visible := next.visibleIndices()
+	switch {
+	case len(visible) == 0:
+		if oldCursor >= len(entries) {
+			next.cursor = len(entries) - 1
+		} else {
+			next.cursor = oldCursor
+		}
+	case oldPos >= len(visible):
+		next.cursor = visible[len(visible)-1]
 	default:
-		next.cursor = len(entries) - 1
+		next.cursor = visible[oldPos]
 	}
 	return next
 }

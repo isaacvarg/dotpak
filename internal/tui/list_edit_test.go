@@ -632,7 +632,7 @@ func assertBackOnList(t *testing.T, view string) {
 	if strings.Contains(view, "What is the ") || strings.Contains(view, "Which group?") {
 		t.Fatalf("edit did not return to the list\n%s", view)
 	}
-	if !strings.Contains(view, "j/k move • d remove • e edit • q quit") {
+	if !strings.Contains(view, listHint) {
 		t.Fatalf("list hint missing\n%s", view)
 	}
 }
@@ -1011,7 +1011,7 @@ func TestRunListEditCtrlCQuitsWithoutSaving(t *testing.T) {
 				t.Fatalf("ctrl+c returned %v", err)
 			}
 			assertManifestUnchanged(t, before)
-			if strings.Contains(stripANSI(view), "nvim") && strings.Contains(view, "j/k move • d remove") {
+			if strings.Contains(stripANSI(view), "nvim") && strings.Contains(view, listHint) {
 				t.Fatal("ctrl+c saved the edit and returned to the list")
 			}
 		})
@@ -1042,7 +1042,7 @@ func TestRunListEditFailedSaveKeepsTheError(t *testing.T) {
 	if !strings.Contains(view, "permission denied") {
 		t.Fatalf("save error missing\n%s", view)
 	}
-	if strings.Contains(view, "j/k move • d remove • e edit • q quit") {
+	if strings.Contains(view, listHint) {
 		t.Fatalf("j/k left the error\n%s", view)
 	}
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func (m listModel) askRemove() listModel {
-	if len(m.entries) == 0 {
+	if !m.cursorVisible() {
 		return m
 	}
 	m.confirming = true
@@ -44,9 +44,29 @@ func (m listModel) removeSelected() (tea.Model, tea.Cmd) {
 	if err := mf.Save(); err != nil {
 		return m.cancelRemove(), nil
 	}
+	visible := m.visibleIndices()
+	pos := 0
+	for i, idx := range visible {
+		if idx == m.cursor {
+			pos = i
+			break
+		}
+	}
 	m.entries = append(m.entries[:m.cursor], m.entries[m.cursor+1:]...)
-	if len(m.entries) > 0 && m.cursor >= len(m.entries) {
-		m.cursor = len(m.entries) - 1
+	if len(m.entries) == 0 {
+		m.cursor = 0
+	} else {
+		visible = m.visibleIndices()
+		switch {
+		case len(visible) == 0:
+			if m.cursor >= len(m.entries) {
+				m.cursor = len(m.entries) - 1
+			}
+		case pos >= len(visible):
+			m.cursor = visible[len(visible)-1]
+		default:
+			m.cursor = visible[pos]
+		}
 	}
 	m.confirming = false
 	return m, nil

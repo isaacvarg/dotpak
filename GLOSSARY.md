@@ -31,3 +31,11 @@ _Avoid_: delete, uninstall
 **Edit**:
 A change to an entry's name, group, install type, or install command.
 _Avoid_: update
+
+**Filter**:
+A group, an install type, or both, limiting which entries are loaded. An entry is loaded only when it matches every filter that is set.
+_Avoid_: query
+
+**Query**:
+A fragment of an entry's name. Among the entries a filter has loaded, the list shows an entry only when its name contains the query, ignoring case.
+_Avoid_: filter, search

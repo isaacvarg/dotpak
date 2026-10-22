@@ -16,7 +16,7 @@ const (
 	colorAur      = "\x1b[38;2;245;189;230m" // #f5bde6
 )
 
-const emptyListView = "Name                              Group  Install type  \uEA85\n\nj/k move • d remove • e edit • q quit"
+const emptyListView = "Name                              Group  Install type  \uEA85\n\n" + listHint
 
 const oneEntryManifest = `{
   "manifest": [
@@ -157,7 +157,7 @@ func TestRunListShowsEntriesInManifestOrder(t *testing.T) {
 	}
 	assertColumnOrder(t, plainZsh, "zsh", "shell", "aur")
 	assertColumnOrder(t, plainNeovim, "neovim", "all", "pacman")
-	if lines[len(lines)-1] != "j/k move • d remove • e edit • q quit" {
+	if lines[len(lines)-1] != listHint {
 		t.Fatalf("hint %q", lines[len(lines)-1])
 	}
 }
@@ -359,7 +359,6 @@ func TestRunListMovesWrapsAndQuits(t *testing.T) {
 			wantSelected: "ripgrep",
 		},
 		{name: "enter leaves the selection", keys: []tea.KeyPressMsg{{Code: tea.KeyEnter}, quit}, wantSelected: "neovim", unchanged: true},
-		{name: "slash does nothing", keys: []tea.KeyPressMsg{{Text: "/"}, quit}, wantSelected: "neovim", unchanged: true},
 		{name: "d does not change the manifest", keys: []tea.KeyPressMsg{{Text: "d"}, quit}, wantSelected: "neovim", unchanged: true},
 		{name: "e then esc restores the list", keys: []tea.KeyPressMsg{{Text: "e"}, {Code: tea.KeyEscape}}, wantSelected: "neovim", unchanged: true},
 		{name: "q quits", keys: []tea.KeyPressMsg{quit}, wantSelected: "neovim", unchanged: true},
@@ -505,7 +504,7 @@ func TestRunListRemoveConfirmsWithY(t *testing.T) {
 			if got := selectedEntry(t, view, []string{"spotify", "node", "ripgrep"}); got != "spotify" {
 				t.Fatalf("selected %s, want spotify", got)
 			}
-			if !strings.Contains(view, "j/k move • d remove • e edit • q quit") {
+			if !strings.Contains(view, listHint) {
 				t.Fatalf("left the list %q", view)
 			}
 			if got := readManifest(t); got != manifestAfterRemovingNeovim {
