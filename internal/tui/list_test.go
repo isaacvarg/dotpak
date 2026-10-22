@@ -453,6 +453,63 @@ func TestRunListRemoveAsksWithTheStoredName(t *testing.T) {
 	assertManifestUnchanged(t, before)
 }
 
+const manifestAfterRemovingNeovim = `{
+  "manifest": [
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    },
+    {
+      "name": "ripgrep",
+      "group": "dev",
+      "install_type": "pacman",
+      "install_command": "ripgrep"
+    }
+  ]
+}`
+
+func TestRunListRemoveConfirmsWithY(t *testing.T) {
+	tests := []struct {
+		name string
+		key  tea.KeyPressMsg
+	}{
+		{name: "y", key: tea.KeyPressMsg{Text: "y"}},
+		{name: "Y", key: tea.KeyPressMsg{Text: "Y"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writeManifest(t, filteredManifest)
+			view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, tt.key})
+			if err != nil {
+				t.Fatalf("stay in the list after remove, got %v", err)
+			}
+			if strings.Contains(view, "remove neovim?") {
+				t.Fatalf("prompt still shown %q", view)
+			}
+			if strings.Contains(stripANSI(view), "neovim") {
+				t.Fatalf("removed entry still listed %q", view)
+			}
+			if got := selectedEntry(t, view, []string{"spotify", "node", "ripgrep"}); got != "spotify" {
+				t.Fatalf("selected %s, want spotify", got)
+			}
+			if !strings.Contains(view, "j/k move • d remove • e edit • q quit") {
+				t.Fatalf("left the list %q", view)
+			}
+			if got := readManifest(t); got != manifestAfterRemovingNeovim {
+				t.Fatalf("manifest\n%s\nwant\n%s", got, manifestAfterRemovingNeovim)
+			}
+		})
+	}
+}
+
 func TestRunListRemovePromptIgnoresMovement(t *testing.T) {
 	keys := []tea.KeyPressMsg{
 		{Text: "j"},
@@ -596,6 +653,15 @@ func writeManifest(t *testing.T, body string) []byte {
 		t.Fatal(err)
 	}
 	return payload
+}
+
+func readManifest(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
 
 func assertManifestUnchanged(t *testing.T, before []byte) {
