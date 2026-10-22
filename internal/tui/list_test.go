@@ -8,6 +8,20 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+const emptyListView = "Name                              Group  Install type  \uEA85\n\nj/k move • d remove • e edit • q quit"
+
+const oneEntryManifest = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    }
+  ]
+}
+`
+
 func TestRunListReturnsBeforeDrawing(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -50,5 +64,65 @@ func TestRunListReturnsBeforeDrawing(t *testing.T) {
 				t.Fatalf("manifest file appeared, stat err %v", statErr)
 			}
 		})
+	}
+}
+
+func TestRunListDrawsEmptyList(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest string
+		group    string
+	}{
+		{name: "no manifest", manifest: ""},
+		{name: "unknown group", manifest: oneEntryManifest, group: "missing"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, tt.manifest)
+			view, err := RunList(tt.group, "", true, []tea.KeyPressMsg{{Text: "q"}})
+			if err != nil {
+				t.Fatalf("quit with an unchanged manifest, got %v", err)
+			}
+			if view != emptyListView {
+				t.Fatalf("view\n%q\nwant\n%q", view, emptyListView)
+			}
+			assertManifestUnchanged(t, before)
+		})
+	}
+}
+
+func writeManifest(t *testing.T, body string) []byte {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	if body == "" {
+		return nil
+	}
+	cfg := filepath.Join(dir, "dotpak")
+	if err := os.MkdirAll(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte(body)
+	if err := os.WriteFile(filepath.Join(cfg, "manifest.json"), payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
+
+func assertManifestUnchanged(t *testing.T, before []byte) {
+	t.Helper()
+	path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "manifest.json")
+	after, err := os.ReadFile(path)
+	if before == nil {
+		if !os.IsNotExist(err) {
+			t.Fatalf("manifest file appeared: %v", err)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("manifest changed\nbefore %s\nafter %s", before, after)
 	}
 }
