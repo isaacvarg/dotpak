@@ -89,8 +89,10 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	if m.confirming && key.String() == "q" {
-		return m.cancelRemove(), nil
+	if m.confirming {
+		if next, cmd, handled := m.answerRemove(key); handled {
+			return next, cmd
+		}
 	}
 	switch key.String() {
 	case "q", "esc", "ctrl+c":
