@@ -161,6 +161,191 @@ func TestRunListShowsEntriesInManifestOrder(t *testing.T) {
 	}
 }
 
+const filteredManifest = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    },
+    {
+      "name": "ripgrep",
+      "group": "dev",
+      "install_type": "pacman",
+      "install_command": "ripgrep"
+    }
+  ]
+}
+`
+
+func TestRunListFiltersByGroupAndInstallType(t *testing.T) {
+	tests := []struct {
+		name        string
+		group       string
+		installType string
+		wantNames   []string
+		absentNames []string
+	}{
+		{
+			name:        "group",
+			group:       "all",
+			wantNames:   []string{"neovim"},
+			absentNames: []string{"spotify", "node", "ripgrep"},
+		},
+		{
+			name:        "install type",
+			installType: "flatpak",
+			wantNames:   []string{"spotify"},
+			absentNames: []string{"neovim", "node", "ripgrep"},
+		},
+		{
+			name:        "group and install type",
+			group:       "dev",
+			installType: "mise",
+			wantNames:   []string{"node"},
+			absentNames: []string{"neovim", "spotify", "ripgrep"},
+		},
+		{
+			name:        "group keeps manifest order",
+			group:       "dev",
+			wantNames:   []string{"node", "ripgrep"},
+			absentNames: []string{"neovim", "spotify"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, filteredManifest)
+			view, err := RunList(tt.group, tt.installType, true, []tea.KeyPressMsg{{Text: "q"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertManifestUnchanged(t, before)
+			plain := stripANSI(view)
+			prev := -1
+			for _, name := range tt.wantNames {
+				at := strings.Index(plain, name)
+				if at < 0 || at <= prev {
+					t.Fatalf("names %v not in manifest order in %q", tt.wantNames, plain)
+				}
+				prev = at
+			}
+			for _, name := range tt.absentNames {
+				if strings.Contains(plain, name) {
+					t.Fatalf("entry %s is in the list %q", name, plain)
+				}
+			}
+		})
+	}
+}
+
+const markedManifest = `{
+  "manifest": [
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    },
+    {
+      "name": "zsh",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": ""
+    },
+    {
+      "name": "Node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node"
+    },
+    {
+      "name": "node",
+      "group": "dev",
+      "install_type": "mise",
+      "install_command": "node@20"
+    },
+    {
+      "name": "spotify",
+      "group": "media",
+      "install_type": "flatpak",
+      "install_command": "com.spotify.Client"
+    },
+    {
+      "name": "webapp",
+      "group": "apps",
+      "install_type": "omarchy",
+      "install_command": "webapp-install"
+    }
+  ]
+}
+`
+
+func TestRunListMarksADifferentInstallCommand(t *testing.T) {
+	const (
+		colorMise    = "\x1b[38;2;238;153;160m"
+		colorFlatpak = "\x1b[38;2;166;218;149m"
+		colorOmarchy = "\x1b[38;2;245;169;127m"
+	)
+	before := writeManifest(t, markedManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	if strings.Contains(view, "node@20") || strings.Contains(view, "com.spotify.Client") || strings.Contains(view, "webapp-install") {
+		t.Fatalf("install command text is on the list %q", view)
+	}
+	if strings.Contains(stripANSI(entryLine(t, view, "Node")), "node") {
+		t.Fatal("install command node is on the Node line")
+	}
+
+	plainNeovim := stripANSI(entryLine(t, view, "neovim"))
+	plainZsh := stripANSI(entryLine(t, view, "zsh"))
+	if strings.Contains(plainNeovim, "\uEA85") || strings.Contains(plainZsh, "\uEA85") {
+		t.Fatalf("mark on an equal or blank install command\nneovim %q\nzsh %q", plainNeovim, plainZsh)
+	}
+	for _, name := range []string{"Node", "node", "spotify", "webapp"} {
+		line := stripANSI(entryLine(t, view, name))
+		if !strings.Contains(line, "\uEA85") {
+			t.Fatalf("entry %s has no mark on %q", name, line)
+		}
+	}
+	if !strings.Contains(entryLine(t, view, "node"), colorMise+"mise") {
+		t.Fatalf("mise color %q", entryLine(t, view, "node"))
+	}
+	if !strings.Contains(entryLine(t, view, "spotify"), colorFlatpak+"flatpak") {
+		t.Fatalf("flatpak color %q", entryLine(t, view, "spotify"))
+	}
+	if !strings.Contains(entryLine(t, view, "webapp"), colorOmarchy+"omarchy") {
+		t.Fatalf("omarchy color %q", entryLine(t, view, "webapp"))
+	}
+}
+
+func entryLine(t *testing.T, view, name string) string {
+	t.Helper()
+	for _, line := range strings.Split(view, "\n") {
+		plain := stripANSI(line)
+		if strings.HasPrefix(plain, name) && (len(plain) == len(name) || plain[len(name)] == ' ') {
+			return line
+		}
+	}
+	t.Fatalf("no line for entry %s in %q", name, view)
+	return ""
+}
+
 func assertColumnOrder(t *testing.T, line string, name, group, installType string) {
 	t.Helper()
 	nameAt := strings.Index(line, name)
