@@ -84,7 +84,7 @@ Entries in the all group are always included plus the entries in the specified g
 ```bash
 dotpak list [-g <group>] [-i <installType>]
 ```
-With no flags this prints every entry in the manifest. Use `-g` and `-i` to filter results
+Opens a list of every manifest entry and stays there until you quit. `-g` and `-i` choose the set before the list opens. When stdout is not a terminal, the command exits with an error and prints no table.
 
 
 *Remove an entry*

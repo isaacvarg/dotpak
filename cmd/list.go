@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
-	"text/tabwriter"
 
-	"github.com/isaacvarg/dotpak/internal/manifest"
+	"github.com/charmbracelet/x/term"
+	"github.com/isaacvarg/dotpak/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -18,44 +17,8 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Lists all entries in the manifest",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		hasGroup := listGroup != ""
-		hasInstallType := listInstallType != ""
-		if hasInstallType {
-			it := manifest.InstallType(listInstallType)
-			if !it.IsValid() {
-				return fmt.Errorf("invalid install type: %q", listInstallType)
-			}
-
-		}
-
-		var filtered []manifest.ManifestEntry
-		entries, err := manifest.Load()
-		if err != nil {
-			return err
-		}
-
-		for _, e := range entries.Manifest {
-			if hasGroup && e.Group != listGroup {
-				continue
-			}
-			if hasInstallType && e.InstallType != manifest.InstallType(listInstallType) {
-				continue
-			}
-			filtered = append(filtered, e)
-		}
-
-		w := tabwriter.NewWriter(os.Stdout, 1, 2, 3, ' ', 0)
-		fmt.Fprintf(w, "Name\tGroup\tType\t\n")
-
-		for _, e := range filtered {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", e.Name, e.Group, e.InstallType)
-		}
-
-		err = w.Flush()
-		if err != nil {
-			return err
-		}
-		return nil
+		_, err := tui.RunList(listGroup, listInstallType, term.IsTerminal(os.Stdout.Fd()), nil)
+		return err
 	},
 }
 
