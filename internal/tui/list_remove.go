@@ -46,6 +46,9 @@ func (m listModel) removeSelected() (tea.Model, tea.Cmd) {
 		return m.cancelRemove(), nil
 	}
 	m.entries = append(m.entries[:m.cursor], m.entries[m.cursor+1:]...)
+	if len(m.entries) > 0 && m.cursor >= len(m.entries) {
+		m.cursor = len(m.entries) - 1
+	}
 	m.confirming = false
 	return m, nil
 }
