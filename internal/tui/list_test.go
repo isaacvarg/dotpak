@@ -3,9 +3,16 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+)
+
+const (
+	colorSelected = "\x1b[38;2;238;212;159m" // #eed49f
+	colorPacman   = "\x1b[38;2;240;198;198m" // #f0c6c6
+	colorAur      = "\x1b[38;2;245;189;230m" // #f5bde6
 )
 
 const emptyListView = "Name                              Group  Install type  \uEA85\n\nj/k move • d remove • e edit • q quit"
@@ -89,6 +96,93 @@ func TestRunListDrawsEmptyList(t *testing.T) {
 			assertManifestUnchanged(t, before)
 		})
 	}
+}
+
+const orderedManifest = `{
+  "manifest": [
+    {
+      "name": "zsh",
+      "group": "shell",
+      "install_type": "aur",
+      "install_command": "zsh"
+    },
+    {
+      "name": "neovim",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "neovim"
+    }
+  ]
+}
+`
+
+func TestRunListShowsEntriesInManifestOrder(t *testing.T) {
+	before := writeManifest(t, orderedManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
+	if err != nil {
+		t.Fatalf("quit with an unchanged manifest, got %v", err)
+	}
+	assertManifestUnchanged(t, before)
+
+	lines := strings.Split(view, "\n")
+	if len(lines) < 4 {
+		t.Fatalf("view %q", view)
+	}
+	header := lines[0]
+	if strings.Contains(header, "\x1b") {
+		t.Fatalf("header is styled %q", header)
+	}
+	if header != "Name                              Group  Install type  \uEA85" {
+		t.Fatalf("header %q", header)
+	}
+	zsh := lines[1]
+	neovim := lines[2]
+	if !strings.Contains(zsh, colorSelected+"zsh") || !strings.Contains(zsh, colorSelected+"shell") {
+		t.Fatalf("first entry is not selected %q", zsh)
+	}
+	if !strings.Contains(zsh, colorAur+"aur") || strings.Contains(zsh, colorSelected+"aur") {
+		t.Fatalf("install type color %q", zsh)
+	}
+	if strings.Contains(neovim, colorSelected+"neovim") || strings.Contains(neovim, colorSelected+"all") {
+		t.Fatalf("second entry is selected %q", neovim)
+	}
+	if !strings.Contains(neovim, colorPacman+"pacman") {
+		t.Fatalf("pacman color %q", neovim)
+	}
+	plainZsh := stripANSI(zsh)
+	plainNeovim := stripANSI(neovim)
+	if strings.Contains(plainZsh, "\uEA85") || strings.Contains(plainNeovim, "\uEA85") {
+		t.Fatalf("mark shown for an install command equal to the name\nzsh %q\nneovim %q", plainZsh, plainNeovim)
+	}
+	assertColumnOrder(t, plainZsh, "zsh", "shell", "aur")
+	assertColumnOrder(t, plainNeovim, "neovim", "all", "pacman")
+	if lines[len(lines)-1] != "j/k move • d remove • e edit • q quit" {
+		t.Fatalf("hint %q", lines[len(lines)-1])
+	}
+}
+
+func assertColumnOrder(t *testing.T, line string, name, group, installType string) {
+	t.Helper()
+	nameAt := strings.Index(line, name)
+	groupAt := strings.Index(line, group)
+	typeAt := strings.Index(line, installType)
+	if nameAt < 0 || groupAt < 0 || typeAt < 0 || !(nameAt < groupAt && groupAt < typeAt) {
+		t.Fatalf("columns Name, Group, Install type out of order on %q", line)
+	}
+}
+
+func stripANSI(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] != 0x1b {
+			b.WriteByte(s[i])
+			continue
+		}
+		for i < len(s) && s[i] != 'm' {
+			i++
+		}
+	}
+	return b.String()
 }
 
 func writeManifest(t *testing.T, body string) []byte {

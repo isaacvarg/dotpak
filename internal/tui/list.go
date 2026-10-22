@@ -100,16 +100,46 @@ func (m listModel) View() tea.View {
 
 func (m listModel) render() string {
 	var b strings.Builder
-	b.WriteString(padRight("Name", listNameWidth))
-	b.WriteString("  ")
-	b.WriteString(padRight("Group", m.groupWidth))
-	b.WriteString("  ")
-	b.WriteString(padRight("Install type", m.typeWidth))
-	b.WriteString("  ")
-	b.WriteString("\uEA85")
-	b.WriteString("\n\n")
+	b.WriteString(m.headerLine())
+	b.WriteByte('\n')
+	for i, e := range m.entries {
+		b.WriteString(m.rowLine(i, e))
+		b.WriteByte('\n')
+	}
+	b.WriteByte('\n')
 	b.WriteString(listHint)
 	return b.String()
+}
+
+func (m listModel) headerLine() string {
+	return padRight("Name", listNameWidth) + "  " +
+		padRight("Group", m.groupWidth) + "  " +
+		padRight("Install type", m.typeWidth) + "  " +
+		"\uEA85"
+}
+
+func (m listModel) rowLine(i int, e manifest.ManifestEntry) string {
+	name := padRight(e.Name, listNameWidth)
+	group := padRight(e.Group, m.groupWidth)
+	install := installTypeStyle(e.InstallType).Render(padRight(string(e.InstallType), m.typeWidth))
+	mark := " "
+	if e.InstallCommand != "" && e.InstallCommand != e.Name {
+		mark = "\uEA85"
+	}
+	if i == m.cursor {
+		name = selectedStyle.Render(name)
+		group = selectedStyle.Render(group)
+		mark = selectedStyle.Render(mark)
+	}
+	return name + "  " + group + "  " + install + "  " + mark
+}
+
+func installTypeStyle(installType manifest.InstallType) lipgloss.Style {
+	style := lipgloss.NewStyle()
+	if c, ok := sourceColors[string(installType)]; ok {
+		style = style.Foreground(c)
+	}
+	return style
 }
 
 func padRight(s string, width int) string {
