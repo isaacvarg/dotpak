@@ -129,3 +129,44 @@ func TestRunListEditEmptyNameStays(t *testing.T) {
 		})
 	}
 }
+
+func TestRunListEditDuplicateNameStays(t *testing.T) {
+	tests := []struct {
+		name  string
+		group string
+		typed string
+		stay  bool
+	}{
+		{name: "another entry", typed: "spotify", stay: true},
+		{name: "another entry ignoring case", typed: "SPOTIFY", stay: true},
+		{name: "entry outside the filter", group: "all", typed: "node", stay: true},
+		{name: "case-only change of this entry", typed: "Neovim", stay: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, filteredManifest)
+			view, err := RunList(tt.group, "", true, []tea.KeyPressMsg{
+				{Text: "e"},
+				{Code: 'u', Mod: tea.ModCtrl},
+				{Text: tt.typed},
+				{Code: tea.KeyEnter},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertManifestUnchanged(t, before)
+			if tt.stay {
+				if !strings.Contains(view, "What is the name?") || strings.Contains(view, "What is the install type?") {
+					t.Fatalf("duplicate name left the name step\n%s", view)
+				}
+				if !strings.Contains(stripANSI(view), "entry already exists in the manifest") {
+					t.Fatalf("duplicate name has no error\n%s", view)
+				}
+				return
+			}
+			if !strings.Contains(view, "What is the install type?") {
+				t.Fatalf("case-only rename did not leave the name step\n%s", view)
+			}
+		})
+	}
+}

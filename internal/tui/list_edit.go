@@ -5,6 +5,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/isaacvarg/dotpak/internal/manifest"
 )
 
 type editStep int
@@ -15,10 +16,11 @@ const (
 )
 
 type listEdit struct {
-	step      editStep
-	name      string
-	err       string
-	nameInput textinput.Model
+	step         editStep
+	originalName string
+	name         string
+	err          string
+	nameInput    textinput.Model
 }
 
 func (m listModel) beginEdit() listModel {
@@ -29,8 +31,9 @@ func (m listModel) beginEdit() listModel {
 	name.Focus()
 	name.SetValue(entry.Name)
 	m.edit = &listEdit{
-		step:      editName,
-		nameInput: name,
+		step:         editName,
+		originalName: entry.Name,
+		nameInput:    name,
 	}
 	return m
 }
@@ -64,6 +67,20 @@ func (m listModel) confirmEditName() listModel {
 	if name == "" {
 		m.edit.err = "a name is required"
 		return m
+	}
+	mf, err := manifest.Load()
+	if err != nil {
+		m.edit.err = err.Error()
+		return m
+	}
+	for _, existing := range mf.Manifest {
+		if strings.EqualFold(existing.Name, m.edit.originalName) {
+			continue
+		}
+		if strings.EqualFold(existing.Name, name) {
+			m.edit.err = manifest.ErrDuplicateEntry.Error()
+			return m
+		}
 	}
 	m.edit.err = ""
 	m.edit.name = name
