@@ -76,3 +76,21 @@ func TestRunListEditNameStepTakesLetters(t *testing.T) {
 		t.Fatalf("letters left the name step\n%s", view)
 	}
 }
+
+func TestRunListEditConfirmsTheName(t *testing.T) {
+	before := writeManifest(t, oneEntryManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: tea.KeyEnter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	if !strings.Contains(view, "What is the install type?") {
+		t.Fatalf("enter did not leave the name step\n%s", view)
+	}
+	if strings.Contains(view, "What is the name?") {
+		t.Fatalf("name step still showing\n%s", view)
+	}
+}

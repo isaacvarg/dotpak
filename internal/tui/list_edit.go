@@ -11,10 +11,12 @@ type editStep int
 
 const (
 	editName editStep = iota
+	editInstallType
 )
 
 type listEdit struct {
 	step      editStep
+	name      string
 	nameInput textinput.Model
 }
 
@@ -37,19 +39,41 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	switch key.String() {
-	case "ctrl+c":
+	if key.String() == "ctrl+c" {
 		return m, tea.Quit
-	case "esc":
+	}
+	if key.String() == "esc" {
 		m.edit = nil
 		return m, nil
-	default:
+	}
+	switch m.edit.step {
+	case editName:
+		if key.String() == "enter" {
+			return m.confirmEditName(), nil
+		}
 		m.edit.nameInput, _ = m.edit.nameInput.Update(key)
+		return m, nil
+	default:
 		return m, nil
 	}
 }
 
+func (m listModel) confirmEditName() listModel {
+	m.edit.name = strings.TrimSpace(m.edit.nameInput.Value())
+	m.edit.step = editInstallType
+	return m
+}
+
 func (m listModel) renderEdit() string {
+	switch m.edit.step {
+	case editInstallType:
+		return questionStyle.Render("What is the install type?")
+	default:
+		return m.renderEditName()
+	}
+}
+
+func (m listModel) renderEditName() string {
 	var b strings.Builder
 	b.WriteString(questionStyle.Render("What is the name?"))
 	b.WriteString("\n\n")
