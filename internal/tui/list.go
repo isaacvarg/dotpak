@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/isaacvarg/dotpak/internal/manifest"
 )
 
@@ -138,7 +139,7 @@ func (m listModel) headerLine() string {
 }
 
 func (m listModel) rowLine(i int, e manifest.ManifestEntry) string {
-	name := padRight(e.Name, listNameWidth)
+	name := padRight(cutEntryName(e.Name), listNameWidth)
 	group := padRight(e.Group, m.groupWidth)
 	install := installTypeStyle(e.InstallType).Render(padRight(string(e.InstallType), m.typeWidth))
 	mark := " "
@@ -159,6 +160,13 @@ func installTypeStyle(installType manifest.InstallType) lipgloss.Style {
 		style = style.Foreground(c)
 	}
 	return style
+}
+
+func cutEntryName(name string) string {
+	if lipgloss.Width(name) <= listNameWidth {
+		return name
+	}
+	return ansi.Truncate(name, listNameWidth, "…")
 }
 
 func padRight(s string, width int) string {

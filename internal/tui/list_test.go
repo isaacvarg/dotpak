@@ -411,6 +411,76 @@ func TestRunListEmptyListIgnoresMovement(t *testing.T) {
 	}
 }
 
+const longNameManifest = `{
+  "manifest": [
+    {
+      "name": "abcdefghijklmnopqrstuvwxyz0123456789",
+      "group": "widgets",
+      "install_type": "omarchy",
+      "install_command": "custom-identifier"
+    },
+    {
+      "name": "abcdefghijklmnopqrstuvwxyz012345",
+      "group": "widgets",
+      "install_type": "pacman",
+      "install_command": "abcdefghijklmnopqrstuvwxyz012345"
+    }
+  ]
+}
+`
+
+func TestRunListCutsALongName(t *testing.T) {
+	const (
+		fullName  = "abcdefghijklmnopqrstuvwxyz0123456789"
+		cutName   = "abcdefghijklmnopqrstuvwxyz01234…"
+		exactName = "abcdefghijklmnopqrstuvwxyz012345"
+	)
+	before := writeManifest(t, longNameManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	if strings.Contains(view, fullName) {
+		t.Fatal("long name is not cut")
+	}
+	if strings.Contains(view, "custom-identifier") {
+		t.Fatal("install command text is on the list")
+	}
+	longLine := stripANSI(lineContaining(t, view, cutName))
+	if strings.Contains(longLine, "\n") {
+		t.Fatalf("long entry wraps %q", longLine)
+	}
+	for _, part := range []string{cutName, "widgets", "omarchy", "\uEA85"} {
+		if !strings.Contains(longLine, part) {
+			t.Fatalf("long line %q missing %s", longLine, part)
+		}
+	}
+	exactLine := stripANSI(lineContaining(t, view, exactName))
+	if strings.Contains(exactLine, "…") {
+		t.Fatalf("name that fits was cut %q", exactLine)
+	}
+	for _, part := range []string{exactName, "widgets", "pacman"} {
+		if !strings.Contains(exactLine, part) {
+			t.Fatalf("exact line %q missing %s", exactLine, part)
+		}
+	}
+	if strings.Contains(exactLine, "\uEA85") {
+		t.Fatalf("mark shown for an install command equal to the name %q", exactLine)
+	}
+}
+
+func lineContaining(t *testing.T, view, needle string) string {
+	t.Helper()
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(stripANSI(line), needle) {
+			return line
+		}
+	}
+	t.Fatalf("no line contains %q in %q", needle, view)
+	return ""
+}
+
 func selectedEntry(t *testing.T, view string, names []string) string {
 	t.Helper()
 	var got string
