@@ -66,27 +66,24 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) selection(options []string, idx int, colors map[string]color.Color) string {
-	var builder strings.Builder
+	return renderChoices(options, idx, colors)
+}
 
+func renderChoices(options []string, idx int, colors map[string]color.Color) string {
+	var b strings.Builder
 	for i, option := range options {
 		if i == idx {
 			style := selectedStyle
-
 			if c, ok := colors[option]; ok {
 				style = style.Foreground(c)
 			}
-			builder.WriteString("- ")
-			builder.WriteString(style.Render(option))
-			builder.WriteString("\n")
-			continue
+			b.WriteString("- ")
+			b.WriteString(style.Render(option))
+		} else {
+			b.WriteString("  ")
+			b.WriteString(option)
 		}
-
-		// not selected
-		builder.WriteString("  ")
-		builder.WriteString(option)
-		builder.WriteString("\n")
-
+		b.WriteByte('\n')
 	}
-
-	return builder.String()
+	return b.String()
 }

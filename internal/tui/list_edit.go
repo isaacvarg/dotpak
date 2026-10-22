@@ -20,15 +20,13 @@ const (
 	editGroup
 	editCommand
 	editSaveFailed
+	editUnavailable
 )
 
 type listEdit struct {
 	step           editStep
 	originalName   string
-	name           string
-	installType    string
-	group          string
-	command        string
+	entry          manifest.ManifestEntry
 	err            string
 	nameInput      textinput.Model
 	commandInput   textinput.Model
@@ -41,7 +39,7 @@ func (m listModel) beginEdit() listModel {
 	entry := m.entries[m.cursor]
 	lg, err := groups.Load()
 	if err != nil {
-		m.edit = &listEdit{step: editSaveFailed, err: err.Error()}
+		m.edit = &listEdit{step: editUnavailable, err: err.Error()}
 		return m
 	}
 	name := textinput.New()
@@ -60,9 +58,9 @@ func (m listModel) beginEdit() listModel {
 		originalName:   entry.Name,
 		nameInput:      name,
 		commandInput:   command,
-		installTypeIdx: installTypeIndex(entry.InstallType),
+		installTypeIdx: indexOf(editInstallTypes, string(entry.InstallType)),
 		groups:         choices,
-		groupIdx:       groupIndex(choices, entry.Group),
+		groupIdx:       indexOf(choices, entry.Group),
 	}
 	return m
 }
@@ -86,26 +84,32 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.edit.nameInput, _ = m.edit.nameInput.Update(key)
 		return m, nil
-	case editInstallType:
-		switch key.String() {
-		case "j", "down":
-			m.edit.installTypeIdx = wrap(m.edit.installTypeIdx+1, len(editInstallTypes))
-		case "k", "up":
-			m.edit.installTypeIdx = wrap(m.edit.installTypeIdx-1, len(editInstallTypes))
-		case "enter":
-			m.edit.installType = editInstallTypes[m.edit.installTypeIdx]
-			m.edit.step = editGroup
+	case editInstallType, editGroup:
+		choosingType := m.edit.step == editInstallType
+		options := m.edit.groups
+		idx := m.edit.groupIdx
+		if choosingType {
+			options = editInstallTypes
+			idx = m.edit.installTypeIdx
 		}
-		return m, nil
-	case editGroup:
 		switch key.String() {
 		case "j", "down":
-			m.edit.groupIdx = wrap(m.edit.groupIdx+1, len(m.edit.groups))
+			idx = wrap(idx+1, len(options))
 		case "k", "up":
-			m.edit.groupIdx = wrap(m.edit.groupIdx-1, len(m.edit.groups))
+			idx = wrap(idx-1, len(options))
 		case "enter":
-			m.edit.group = m.edit.groups[m.edit.groupIdx]
-			m.edit.step = editCommand
+			if choosingType {
+				m.edit.entry.InstallType = manifest.InstallType(options[idx])
+				m.edit.step = editGroup
+			} else {
+				m.edit.entry.Group = options[idx]
+				m.edit.step = editCommand
+			}
+		}
+		if choosingType {
+			m.edit.installTypeIdx = idx
+		} else {
+			m.edit.groupIdx = idx
 		}
 		return m, nil
 	case editCommand:
@@ -119,9 +123,9 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func installTypeIndex(current manifest.InstallType) int {
-	for i, name := range editInstallTypes {
-		if name == string(current) {
+func indexOf(options []string, current string) int {
+	for i, name := range options {
+		if name == current {
 			return i
 		}
 	}
@@ -136,15 +140,6 @@ func editGroupChoices(existing []string, current string) []string {
 		}
 	}
 	return append(names, current)
-}
-
-func groupIndex(names []string, current string) int {
-	for i, name := range names {
-		if name == current {
-			return i
-		}
-	}
-	return 0
 }
 
 func (m listModel) confirmEditName() listModel {
@@ -168,7 +163,7 @@ func (m listModel) confirmEditName() listModel {
 		}
 	}
 	m.edit.err = ""
-	m.edit.name = name
+	m.edit.entry.Name = name
 	m.edit.step = editInstallType
 	return m
 }
@@ -176,9 +171,9 @@ func (m listModel) confirmEditName() listModel {
 func (m listModel) confirmEditCommand() listModel {
 	command := m.edit.commandInput.Value()
 	if command == "" {
-		command = m.edit.name
+		command = m.edit.entry.Name
 	}
-	m.edit.command = command
+	m.edit.entry.InstallCommand = command
 	return m.saveEdit()
 }
 
@@ -197,12 +192,7 @@ func (m listModel) saveEdit() listModel {
 	if idx < 0 {
 		return m.failEdit(manifest.ErrNotFound)
 	}
-	mf.Manifest[idx] = manifest.ManifestEntry{
-		Name:           m.edit.name,
-		Group:          m.edit.group,
-		InstallType:    manifest.InstallType(m.edit.installType),
-		InstallCommand: m.edit.command,
-	}
+	mf.Manifest[idx] = m.edit.entry
 	if err := mf.Save(); err != nil {
 		return m.failEdit(err)
 	}
@@ -217,11 +207,12 @@ func (m listModel) failEdit(err error) listModel {
 
 func (m listModel) finishEdit(mf *manifest.Manifest) listModel {
 	oldCursor := m.cursor
-	name := m.edit.name
+	name := m.edit.entry.Name
 	entries := filterEntries(mf.Manifest, m.filterGroup, m.filterInstallType)
 	next := newListModel(entries)
 	next.filterGroup = m.filterGroup
 	next.filterInstallType = m.filterInstallType
+	next.height = m.height
 	found := -1
 	for i, entry := range entries {
 		if entry.Name == name {
@@ -250,7 +241,7 @@ func (m listModel) renderEdit() string {
 		return m.renderEditGroup()
 	case editCommand:
 		return m.renderEditCommand()
-	case editSaveFailed:
+	case editSaveFailed, editUnavailable:
 		return errorStyle.Render(m.edit.err)
 	default:
 		return m.renderEditName()
@@ -267,24 +258,23 @@ func (m listModel) renderEditName() string {
 		b.WriteString(errorStyle.Render(m.edit.err))
 	}
 	b.WriteString("\n\n")
-	b.WriteString(controlsStyle.Render("enter confirm • esc back"))
+	b.WriteString(controlsStyle.Render("enter confirm • esc cancel"))
 	return b.String()
 }
 
 func (m listModel) renderEditInstallType() string {
-	var b strings.Builder
-	b.WriteString(questionStyle.Render("What is the install type?"))
-	b.WriteString("\n\n")
-	b.WriteString(editChoices(editInstallTypes, m.edit.installTypeIdx, sourceColors))
-	b.WriteString(controlsStyle.Render("j/k move • enter select"))
-	return b.String()
+	return m.renderEditChoice("What is the install type?", editInstallTypes, m.edit.installTypeIdx, sourceColors)
 }
 
 func (m listModel) renderEditGroup() string {
+	return m.renderEditChoice("Which group?", m.edit.groups, m.edit.groupIdx, nil)
+}
+
+func (m listModel) renderEditChoice(question string, options []string, idx int, colors map[string]color.Color) string {
 	var b strings.Builder
-	b.WriteString(questionStyle.Render("Which group?"))
+	b.WriteString(questionStyle.Render(question))
 	b.WriteString("\n\n")
-	b.WriteString(editChoices(m.edit.groups, m.edit.groupIdx, nil))
+	b.WriteString(renderChoices(options, idx, colors))
 	b.WriteString(controlsStyle.Render("j/k move • enter select"))
 	return b.String()
 }
@@ -295,27 +285,8 @@ func (m listModel) renderEditCommand() string {
 	b.WriteString("\n\n")
 	b.WriteString(m.edit.commandInput.View())
 	b.WriteString("\n\n")
-	b.WriteString(helpStyle.Render("leave blank to use the name: " + m.edit.name))
+	b.WriteString(helpStyle.Render("leave blank to use the name: " + m.edit.entry.Name))
 	b.WriteString("\n\n")
-	b.WriteString(controlsStyle.Render("enter confirm • esc back"))
-	return b.String()
-}
-
-func editChoices(options []string, idx int, colors map[string]color.Color) string {
-	var b strings.Builder
-	for i, option := range options {
-		if i == idx {
-			style := selectedStyle
-			if c, ok := colors[option]; ok {
-				style = style.Foreground(c)
-			}
-			b.WriteString("- ")
-			b.WriteString(style.Render(option))
-		} else {
-			b.WriteString("  ")
-			b.WriteString(option)
-		}
-		b.WriteByte('\n')
-	}
+	b.WriteString(controlsStyle.Render("enter confirm • esc cancel"))
 	return b.String()
 }

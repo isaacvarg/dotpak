@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/isaacvarg/dotpak/internal/manifest"
 )
 
 const (
@@ -632,7 +633,74 @@ func TestRunListRemoveOtherKeyKeepsTheEntry(t *testing.T) {
 	}
 }
 
-func TestRunListRemovePromptIgnoresMovement(t *testing.T) {
+func TestListWindowKeepsTheSelectedRow(t *testing.T) {
+	names := []string{"one", "two", "three", "four", "five", "six"}
+	entries := make([]manifest.ManifestEntry, len(names))
+	for i, name := range names {
+		entries[i] = manifest.ManifestEntry{
+			Name:           name,
+			Group:          "all",
+			InstallType:    manifest.InstallPacman,
+			InstallCommand: name,
+		}
+	}
+	m := newListModel(entries)
+	full := m.View()
+	if full.AltScreen {
+		t.Fatal("a list with no window size uses the alternate screen")
+	}
+	if got := selectedEntry(t, full.Content, names); got != "one" {
+		t.Fatalf("selected %s, want one", got)
+	}
+	for _, name := range names {
+		if !strings.Contains(stripANSI(full.Content), name) {
+			t.Fatalf("full list missing %s", name)
+		}
+	}
+
+	sized, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 6})
+	view := sized.View()
+	if !view.AltScreen {
+		t.Fatal("a sized list is not on the alternate screen")
+	}
+	if got := selectedEntry(t, view.Content, []string{"one", "two", "three"}); got != "one" {
+		t.Fatalf("selected %s, want one", got)
+	}
+	plain := stripANSI(view.Content)
+	for _, name := range []string{"one", "two", "three"} {
+		if !strings.Contains(plain, name) {
+			t.Fatalf("window missing %s\n%s", name, plain)
+		}
+	}
+	for _, name := range []string{"four", "five", "six"} {
+		if strings.Contains(plain, name) {
+			t.Fatalf("window showed %s\n%s", name, plain)
+		}
+	}
+
+	current := sized
+	for range 5 {
+		next, _ := current.Update(tea.KeyPressMsg{Text: "j"})
+		current = next
+	}
+	view = current.View()
+	if got := selectedEntry(t, view.Content, []string{"four", "five", "six"}); got != "six" {
+		t.Fatalf("selected %s, want six", got)
+	}
+	plain = stripANSI(view.Content)
+	for _, name := range []string{"four", "five", "six"} {
+		if !strings.Contains(plain, name) {
+			t.Fatalf("scrolled window missing %s\n%s", name, plain)
+		}
+	}
+	for _, name := range []string{"one", "two", "three"} {
+		if strings.Contains(plain, name) {
+			t.Fatalf("scrolled window still shows %s\n%s", name, plain)
+		}
+	}
+}
+
+func TestRunListRemoveMovementKeyKeepsTheEntry(t *testing.T) {
 	keys := []tea.KeyPressMsg{
 		{Text: "j"},
 		{Text: "k"},
@@ -642,14 +710,21 @@ func TestRunListRemovePromptIgnoresMovement(t *testing.T) {
 	for _, key := range keys {
 		t.Run(key.String(), func(t *testing.T) {
 			before := writeManifest(t, filteredManifest)
-			view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, key})
+			baseline, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if view != "remove neovim?" {
-				t.Fatalf("view %q, want %q", view, "remove neovim?")
+			view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, key, {Text: "y"}})
+			if err != nil {
+				t.Fatalf("cancel remove, got %v", err)
+			}
+			if view != baseline {
+				t.Fatalf("view\n%s\nwant\n%s", view, baseline)
 			}
 			assertManifestUnchanged(t, before)
+			if strings.Contains(view, "remove neovim?") {
+				t.Fatalf("remove prompt shown %q", view)
+			}
 		})
 	}
 }

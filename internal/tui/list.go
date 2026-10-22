@@ -65,6 +65,7 @@ type listModel struct {
 	typeWidth         int
 	filterGroup       string
 	filterInstallType string
+	height            int
 	confirming        bool
 	edit              *listEdit
 }
@@ -90,6 +91,10 @@ func newListModel(entries []manifest.ManifestEntry) listModel {
 func (m listModel) Init() tea.Cmd { return nil }
 
 func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.height = size.Height
+		return m, nil
+	}
 	if m.edit != nil {
 		return m.updateEdit(msg)
 	}
@@ -134,26 +139,60 @@ func (m listModel) move(delta int) listModel {
 }
 
 func (m listModel) View() tea.View {
+	content := m.render()
 	if m.edit != nil {
-		return tea.NewView(m.renderEdit())
+		content = m.renderEdit()
 	}
-	return tea.NewView(m.render())
+	view := tea.NewView(content)
+	if m.height > 0 {
+		view.AltScreen = true
+	}
+	return view
 }
 
 func (m listModel) render() string {
 	if m.confirming {
 		return m.removePrompt()
 	}
+	start, end := 0, len(m.entries)
+	if m.height > 0 {
+		room := m.height - 3
+		if room < 1 {
+			room = 1
+		}
+		start, end = rowWindow(m.cursor, len(m.entries), room)
+	}
 	var b strings.Builder
 	b.WriteString(m.headerLine())
 	b.WriteByte('\n')
-	for i, e := range m.entries {
-		b.WriteString(m.rowLine(i, e))
+	for i := start; i < end; i++ {
+		b.WriteString(m.rowLine(i, m.entries[i]))
 		b.WriteByte('\n')
 	}
 	b.WriteByte('\n')
 	b.WriteString(listHint)
 	return b.String()
+}
+
+// rowWindow is the slice of rows that fit under the header and above the hint,
+// always including the selected row.
+func rowWindow(cursor, n, room int) (start, end int) {
+	if n == 0 {
+		return 0, 0
+	}
+	if room > n {
+		room = n
+	}
+	start = cursor - room + 1
+	if start < 0 {
+		start = 0
+	}
+	end = start + room
+	if end > n {
+		end = n
+		start = end - room
+	}
+	return start, end
 }
 
 func (m listModel) headerLine() string {

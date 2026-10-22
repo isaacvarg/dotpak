@@ -49,6 +49,9 @@ func TestRunListEditOpensOnTheSelectedName(t *testing.T) {
 			if strings.Contains(view, "What is the install type?") {
 				t.Fatalf("edit skipped the name step\n%s", view)
 			}
+			if !strings.Contains(view, "esc cancel") || strings.Contains(view, "esc back") {
+				t.Fatalf("name step hint\n%s", view)
+			}
 		})
 	}
 }

@@ -26,8 +26,6 @@ func (m listModel) answerRemove(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "y", "Y":
 		return m.removeSelected()
-	case "j", "k", "up", "down":
-		return m, nil
 	default:
 		return m.cancelRemove(), nil
 	}
