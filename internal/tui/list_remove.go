@@ -22,32 +22,30 @@ func (m listModel) removePrompt() string {
 	return "remove " + m.entries[m.cursor].Name + "?"
 }
 
-func (m listModel) answerRemove(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+func (m listModel) answerRemove(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "y", "Y":
 		return m.removeSelected()
 	case "j", "k", "up", "down":
-		return m, nil, true
-	case "q":
-		return m.cancelRemove(), nil, true
+		return m, nil
 	default:
-		return m, nil, false
+		return m.cancelRemove(), nil
 	}
 }
 
-func (m listModel) removeSelected() (tea.Model, tea.Cmd, bool) {
+func (m listModel) removeSelected() (tea.Model, tea.Cmd) {
 	name := m.entries[m.cursor].Name
 	mf, err := manifest.Load()
 	if err != nil {
-		return m.cancelRemove(), nil, true
+		return m.cancelRemove(), nil
 	}
 	if err := mf.Remove(name); err != nil {
-		return m.cancelRemove(), nil, true
+		return m.cancelRemove(), nil
 	}
 	if err := mf.Save(); err != nil {
-		return m.cancelRemove(), nil, true
+		return m.cancelRemove(), nil
 	}
 	m.entries = append(m.entries[:m.cursor], m.entries[m.cursor+1:]...)
 	m.confirming = false
-	return m, nil, true
+	return m, nil
 }
