@@ -18,6 +18,7 @@ const (
 	editName editStep = iota
 	editInstallType
 	editGroup
+	editCommand
 	editSaveFailed
 )
 
@@ -28,6 +29,7 @@ type listEdit struct {
 	installType    string
 	err            string
 	nameInput      textinput.Model
+	commandInput   textinput.Model
 	installTypeIdx int
 	groups         []string
 	groupIdx       int
@@ -45,11 +47,17 @@ func (m listModel) beginEdit() listModel {
 	name.SetWidth(40)
 	name.Focus()
 	name.SetValue(entry.Name)
+	command := textinput.New()
+	command.Prompt = "› "
+	command.SetWidth(40)
+	command.Focus()
+	command.SetValue(entry.InstallCommand)
 	choices := editGroupChoices(lg.Names(), entry.Group)
 	m.edit = &listEdit{
 		step:           editName,
 		originalName:   entry.Name,
 		nameInput:      name,
+		commandInput:   command,
 		installTypeIdx: installTypeIndex(entry.InstallType),
 		groups:         choices,
 		groupIdx:       groupIndex(choices, entry.Group),
@@ -93,7 +101,12 @@ func (m listModel) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.edit.groupIdx = wrap(m.edit.groupIdx+1, len(m.edit.groups))
 		case "k", "up":
 			m.edit.groupIdx = wrap(m.edit.groupIdx-1, len(m.edit.groups))
+		case "enter":
+			m.edit.step = editCommand
 		}
+		return m, nil
+	case editCommand:
+		m.edit.commandInput, _ = m.edit.commandInput.Update(key)
 		return m, nil
 	default:
 		return m, nil
@@ -160,6 +173,8 @@ func (m listModel) renderEdit() string {
 		return m.renderEditInstallType()
 	case editGroup:
 		return m.renderEditGroup()
+	case editCommand:
+		return m.renderEditCommand()
 	case editSaveFailed:
 		return errorStyle.Render(m.edit.err)
 	default:
@@ -196,6 +211,18 @@ func (m listModel) renderEditGroup() string {
 	b.WriteString("\n\n")
 	b.WriteString(editChoices(m.edit.groups, m.edit.groupIdx, nil))
 	b.WriteString(controlsStyle.Render("j/k move • enter select"))
+	return b.String()
+}
+
+func (m listModel) renderEditCommand() string {
+	var b strings.Builder
+	b.WriteString(questionStyle.Render("What is the install command?"))
+	b.WriteString("\n\n")
+	b.WriteString(m.edit.commandInput.View())
+	b.WriteString("\n\n")
+	b.WriteString(helpStyle.Render("leave blank to use the name: " + m.edit.name))
+	b.WriteString("\n\n")
+	b.WriteString(controlsStyle.Render("enter confirm • esc back"))
 	return b.String()
 }
 

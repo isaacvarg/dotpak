@@ -399,6 +399,60 @@ func TestRunListEditGroupMovesAndWraps(t *testing.T) {
 	}
 }
 
+func TestRunListEditCommandStartsOnTheCurrentValue(t *testing.T) {
+	before := writeManifest(t, editTypesManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "j"},
+		{Text: "e"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	plain := stripANSI(view)
+	if !strings.Contains(plain, "What is the install command?") {
+		t.Fatalf("install command step missing\n%s", plain)
+	}
+	if !strings.Contains(plain, "node@20") {
+		t.Fatalf("install command does not start on the current value\n%s", plain)
+	}
+	if strings.Contains(plain, "Which group?") {
+		t.Fatalf("still on the group step\n%s", plain)
+	}
+}
+
+func TestRunListEditCommandStepTakesLetters(t *testing.T) {
+	before := writeManifest(t, oneEntryManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Text: "j"},
+		{Text: "k"},
+		{Text: "d"},
+		{Text: "e"},
+		{Code: 'x'},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	plain := stripANSI(view)
+	if !strings.Contains(plain, "What is the install command?") {
+		t.Fatalf("left the install command step\n%s", plain)
+	}
+	if !strings.Contains(plain, "neovimjkde") {
+		t.Fatalf("install command did not take j, k, d, and e as characters\n%s", plain)
+	}
+	if strings.Contains(plain, "neovimjkdex") {
+		t.Fatalf("a code-only key inserted a character\n%s", plain)
+	}
+}
+
 func choiceLines(plain string) []string {
 	var got []string
 	for _, line := range strings.Split(plain, "\n") {
