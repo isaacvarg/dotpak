@@ -5,7 +5,7 @@ Dotpak records the packages, apps, and plugins a machine should have, and instal
 ## Language
 
 **Entry**:
-A named package, app, or plugin in the manifest. It belongs to one group and one install type.
+A named package, app, or plugin in the manifest. It belongs to one group and one install type, and its name identifies it.
 _Avoid_: package, item
 
 **Group**:
@@ -21,5 +21,13 @@ The backend responsible for an entry: pacman, aur, flatpak, omarchy, or mise.
 _Avoid_: source, package manager
 
 **Install command**:
-The identifier an entry asks its install type to install. For mise, a bare tool name means latest, and a versioned name such as `node@20` means that version.
-_Avoid_: shell command
+The identifier an entry asks its install type to install. It is the entry's name unless a different identifier was recorded, and for mise a bare tool name means latest while a versioned name such as `node@20` means that version.
+_Avoid_: shell command, custom command
+
+**Remove**:
+Taking an entry out of the manifest. The package, app, or plugin stays on the machine.
+_Avoid_: delete, uninstall
+
+**Edit**:
+A change to an entry's name, group, install type, or install command.
+_Avoid_: update
