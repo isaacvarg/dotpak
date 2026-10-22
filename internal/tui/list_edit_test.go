@@ -775,3 +775,301 @@ func assertChoiceOrder(t *testing.T, plain string, choices []string) {
 		prev = at
 	}
 }
+
+const dropManifest = `{
+  "manifest": [
+    {
+      "name": "alpha",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "alpha"
+    },
+    {
+      "name": "beta",
+      "group": "all",
+      "install_type": "pacman",
+      "install_command": "beta"
+    },
+    {
+      "name": "gamma",
+      "group": "all",
+      "install_type": "mise",
+      "install_command": "gamma"
+    },
+    {
+      "name": "delta",
+      "group": "media",
+      "install_type": "pacman",
+      "install_command": "delta"
+    }
+  ]
+}
+`
+
+const mediaGroup = `{
+  "groups": [
+    {"name": "media"}
+  ]
+}
+`
+
+func TestRunListEditDropsAnEntryThatLeavesTheFilter(t *testing.T) {
+	enter := tea.KeyPressMsg{Code: tea.KeyEnter}
+	toMedia := []tea.KeyPressMsg{{Text: "e"}, enter, enter, {Text: "j"}, enter, enter}
+	tests := []struct {
+		name        string
+		group       string
+		installType string
+		keys        []tea.KeyPressMsg
+		selected    string
+		visible     []string
+		absent      []string
+		empty       bool
+		wantJSON    string
+	}{
+		{
+			name:     "next entry after the first drops",
+			group:    "all",
+			keys:     toMedia,
+			selected: "beta",
+			visible:  []string{"beta", "gamma"},
+			absent:   []string{"alpha", "delta"},
+			wantJSON: dropJSON("media", "pacman", "all", "pacman", "all", "mise", "media", "pacman"),
+		},
+		{
+			name:     "next entry after the middle drops",
+			group:    "all",
+			keys:     append([]tea.KeyPressMsg{{Text: "j"}}, toMedia...),
+			selected: "gamma",
+			visible:  []string{"alpha", "gamma"},
+			absent:   []string{"beta", "delta"},
+			wantJSON: dropJSON("all", "pacman", "media", "pacman", "all", "mise", "media", "pacman"),
+		},
+		{
+			name:     "new last entry after the last drops",
+			group:    "all",
+			keys:     append([]tea.KeyPressMsg{{Text: "j"}, {Text: "j"}}, toMedia...),
+			selected: "beta",
+			visible:  []string{"alpha", "beta"},
+			absent:   []string{"gamma", "delta"},
+			wantJSON: dropJSON("all", "pacman", "all", "pacman", "media", "mise", "media", "pacman"),
+		},
+		{
+			name:        "install type filter keeps the next entry",
+			installType: "pacman",
+			keys:        []tea.KeyPressMsg{{Text: "e"}, enter, {Text: "j"}, enter, enter, enter},
+			selected:    "beta",
+			visible:     []string{"beta", "delta"},
+			absent:      []string{"alpha", "gamma"},
+			wantJSON:    dropJSON("all", "aur", "all", "pacman", "all", "mise", "media", "pacman"),
+		},
+		{
+			name:        "both filters hide the other rows",
+			group:       "all",
+			installType: "pacman",
+			keys:        []tea.KeyPressMsg{{Text: "e"}, enter, {Text: "j"}, enter, enter, enter},
+			selected:    "beta",
+			visible:     []string{"beta"},
+			absent:      []string{"alpha", "gamma", "delta"},
+			wantJSON:    dropJSON("all", "aur", "all", "pacman", "all", "mise", "media", "pacman"),
+		},
+		{
+			name:     "empty list when the last match drops",
+			group:    "media",
+			keys:     []tea.KeyPressMsg{{Text: "e"}, enter, enter, {Text: "k"}, enter, enter},
+			empty:    true,
+			wantJSON: dropJSON("all", "pacman", "all", "pacman", "all", "mise", "all", "pacman"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writeManifest(t, dropManifest)
+			writeGroups(t, mediaGroup)
+			view, err := RunList(tt.group, tt.installType, true, tt.keys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertManifestJSON(t, tt.wantJSON)
+			plain := stripANSI(view)
+			if tt.empty {
+				if view != emptyListView {
+					t.Fatalf("view\n%q\nwant\n%q", view, emptyListView)
+				}
+				return
+			}
+			assertBackOnList(t, view)
+			if got := selectedEntry(t, view, tt.visible); got != tt.selected {
+				t.Fatalf("selected %s, want %s\n%s", got, tt.selected, plain)
+			}
+			for _, name := range tt.absent {
+				if strings.Contains(plain, name) {
+					t.Fatalf("entry %s stayed on the list\n%s", name, plain)
+				}
+			}
+		})
+	}
+}
+
+func dropJSON(alphaGroup, alphaType, betaGroup, betaType, gammaGroup, gammaType, deltaGroup, deltaType string) string {
+	return `{
+  "manifest": [
+    {
+      "name": "alpha",
+      "group": "` + alphaGroup + `",
+      "install_type": "` + alphaType + `",
+      "install_command": "alpha"
+    },
+    {
+      "name": "beta",
+      "group": "` + betaGroup + `",
+      "install_type": "` + betaType + `",
+      "install_command": "beta"
+    },
+    {
+      "name": "gamma",
+      "group": "` + gammaGroup + `",
+      "install_type": "` + gammaType + `",
+      "install_command": "gamma"
+    },
+    {
+      "name": "delta",
+      "group": "` + deltaGroup + `",
+      "install_type": "` + deltaType + `",
+      "install_command": "delta"
+    }
+  ]
+}`
+}
+
+func TestRunListEditEscDiscardsTheEdit(t *testing.T) {
+	enter := tea.KeyPressMsg{Code: tea.KeyEnter}
+	esc := tea.KeyPressMsg{Code: tea.KeyEscape}
+	tests := []struct {
+		name string
+		keys []tea.KeyPressMsg
+	}{
+		{name: "name", keys: []tea.KeyPressMsg{{Text: "e"}, {Text: "x"}, esc}},
+		{name: "install type", keys: []tea.KeyPressMsg{{Text: "e"}, enter, {Text: "j"}, esc}},
+		{name: "group", keys: []tea.KeyPressMsg{{Text: "e"}, enter, enter, {Text: "j"}, esc}},
+		{name: "install command", keys: []tea.KeyPressMsg{{Text: "e"}, enter, enter, enter, {Text: "x"}, esc}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, editPairManifest)
+			writeGroups(t, `{
+  "groups": [
+    {"name": "shell"}
+  ]
+}
+`)
+			baseline, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "q"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			view, err := RunList("", "", true, tt.keys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertManifestUnchanged(t, before)
+			if view != baseline {
+				t.Fatalf("view\n%s\nwant\n%s", view, baseline)
+			}
+		})
+	}
+}
+
+func TestRunListEditCtrlCQuitsWithoutSaving(t *testing.T) {
+	enter := tea.KeyPressMsg{Code: tea.KeyEnter}
+	quit := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
+	tests := []struct {
+		name string
+		keys []tea.KeyPressMsg
+	}{
+		{name: "name step", keys: []tea.KeyPressMsg{{Text: "e"}, quit}},
+		{
+			name: "command step",
+			keys: []tea.KeyPressMsg{
+				{Text: "e"},
+				{Code: 'u', Mod: tea.ModCtrl},
+				{Text: "nvim"},
+				enter,
+				{Text: "j"},
+				enter,
+				enter,
+				quit,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := writeManifest(t, oneEntryManifest)
+			view, err := RunList("", "", true, tt.keys)
+			if err != nil {
+				t.Fatalf("ctrl+c returned %v", err)
+			}
+			assertManifestUnchanged(t, before)
+			if strings.Contains(stripANSI(view), "nvim") && strings.Contains(view, "j/k move • d remove") {
+				t.Fatal("ctrl+c saved the edit and returned to the list")
+			}
+		})
+	}
+}
+
+func TestRunListEditFailedSaveKeepsTheError(t *testing.T) {
+	before := writeManifest(t, oneEntryManifest)
+	path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "manifest.json")
+	if err := os.Chmod(path, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "nvim"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Text: "j"},
+		{Text: "k"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	if !strings.Contains(view, "permission denied") {
+		t.Fatalf("save error missing\n%s", view)
+	}
+	if strings.Contains(view, "j/k move • d remove • e edit • q quit") {
+		t.Fatalf("j/k left the error\n%s", view)
+	}
+}
+
+func TestRunListEditEscLeavesAFailedSave(t *testing.T) {
+	before := writeManifest(t, oneEntryManifest)
+	path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "dotpak", "manifest.json")
+	if err := os.Chmod(path, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	view, err := RunList("", "", true, []tea.KeyPressMsg{
+		{Text: "e"},
+		{Code: 'u', Mod: tea.ModCtrl},
+		{Text: "nvim"},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Code: tea.KeyEnter},
+		{Text: "j"},
+		{Code: tea.KeyEscape},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertManifestUnchanged(t, before)
+	assertBackOnList(t, view)
+	if strings.Contains(view, "permission denied") {
+		t.Fatalf("error stayed after esc\n%s", view)
+	}
+	if got := selectedEntry(t, view, []string{"neovim"}); got != "neovim" {
+		t.Fatalf("selected %s", got)
+	}
+}
