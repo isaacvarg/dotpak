@@ -61,6 +61,7 @@ type listModel struct {
 	cursor     int
 	groupWidth int
 	typeWidth  int
+	edit       *listEdit
 }
 
 func newListModel(entries []manifest.ManifestEntry) listModel {
@@ -84,6 +85,9 @@ func newListModel(entries []manifest.ManifestEntry) listModel {
 func (m listModel) Init() tea.Cmd { return nil }
 
 func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.edit != nil {
+		return m.updateEdit(msg)
+	}
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return m, nil
@@ -95,6 +99,11 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.move(1), nil
 	case "k", "up":
 		return m.move(-1), nil
+	case "e":
+		if len(m.entries) == 0 {
+			return m, nil
+		}
+		return m.beginEdit(), nil
 	default:
 		return m, nil
 	}
@@ -115,6 +124,9 @@ func (m listModel) move(delta int) listModel {
 }
 
 func (m listModel) View() tea.View {
+	if m.edit != nil {
+		return tea.NewView(m.renderEdit())
+	}
 	return tea.NewView(m.render())
 }
 

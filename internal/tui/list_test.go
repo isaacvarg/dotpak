@@ -360,7 +360,7 @@ func TestRunListMovesWrapsAndQuits(t *testing.T) {
 		{name: "enter leaves the selection", keys: []tea.KeyPressMsg{{Code: tea.KeyEnter}, quit}, wantSelected: "neovim", unchanged: true},
 		{name: "slash does nothing", keys: []tea.KeyPressMsg{{Text: "/"}, quit}, wantSelected: "neovim", unchanged: true},
 		{name: "d does not change the manifest", keys: []tea.KeyPressMsg{{Text: "d"}, quit}, wantSelected: "neovim", unchanged: true},
-		{name: "e does not change the manifest", keys: []tea.KeyPressMsg{{Text: "e"}, quit}, wantSelected: "neovim", unchanged: true},
+		{name: "e then esc restores the list", keys: []tea.KeyPressMsg{{Text: "e"}, {Code: tea.KeyEscape}}, wantSelected: "neovim", unchanged: true},
 		{name: "q quits", keys: []tea.KeyPressMsg{quit}, wantSelected: "neovim", unchanged: true},
 		{name: "esc quits", keys: []tea.KeyPressMsg{{Code: tea.KeyEscape}}, wantSelected: "neovim", unchanged: true},
 		{name: "ctrl+c quits", keys: []tea.KeyPressMsg{{Code: 'c', Mod: tea.ModCtrl}}, wantSelected: "neovim", unchanged: true},
