@@ -556,6 +556,23 @@ const manifestAfterRemovingRipgrep = `{
   ]
 }`
 
+func TestRunListRemoveLeavesAnEmptyList(t *testing.T) {
+	writeManifest(t, oneEntryManifest)
+	view, err := RunList("", "", true, []tea.KeyPressMsg{{Text: "d"}, {Text: "y"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view != emptyListView {
+		t.Fatalf("view\n%q\nwant\n%q", view, emptyListView)
+	}
+	const want = `{
+  "manifest": []
+}`
+	if got := readManifest(t); got != want {
+		t.Fatalf("manifest\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestRunListRemoveSelectsTheNewLastEntry(t *testing.T) {
 	writeManifest(t, filteredManifest)
 	view, err := RunList("", "", true, []tea.KeyPressMsg{
